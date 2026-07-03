@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test:parser": "node scripts/run-parser-tests.mjs",
     "dev:api": "node server.js",
     "dev:all": "npm run dev:api & npm run dev",
     "preview": "vite preview"
@@ -29,7 +30,8 @@
     "react-router-dom": "^7.18.1",
     "tailwindcss": "^4.3.2",
     "tesseract.js": "^7.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",

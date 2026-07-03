@@ -14,6 +14,7 @@ const ChatPage = lazy(() => import('./pages/ChatPage'))
 const BandejaPage = lazy(() => import('./pages/BandejaPage'))
 const UploadPage = lazy(() => import('./pages/UploadPage'))
 const PreliquidacionPage = lazy(() => import('./pages/PreliquidacionPage'))
+const BackupPage = lazy(() => import('./pages/BackupPage'))
 
 function LoadingFallback() {
   return (
@@ -90,6 +91,16 @@ const router = createBrowserRouter([
             <ErrorBoundary>
               <Suspense fallback={<LoadingFallback />}>
                 <PreliquidacionPage />
+              </Suspense>
+            </ErrorBoundary>
+          ),
+        },
+        {
+          path: '/backup',
+          element: (
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <BackupPage />
               </Suspense>
             </ErrorBoundary>
           ),

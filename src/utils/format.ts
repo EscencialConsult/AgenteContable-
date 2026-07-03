@@ -6,5 +6,11 @@ export function formatCurrency(val: number): string {
 }
 
 export function parseNumber(str: string): number {
-  return parseFloat(str.replace(',', '.')) || 0
+  const normalized = str
+    .trim()
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^0-9.-]/g, '')
+
+  return parseFloat(normalized) || 0
 }

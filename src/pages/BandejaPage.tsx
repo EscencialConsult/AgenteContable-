@@ -13,13 +13,19 @@ import {
 } from 'lucide-react'
 import { getAllComprobantes, updateComprobante, deleteComprobante } from '../db/repositories/comprobanteRepository'
 import type { Comprobante } from '../types/comprobante'
-import { validarComprobante, getNivelGeneral, CATEGORIA_LABELS } from '../services/validatorService'
+import {
+  CATEGORIA_LABELS,
+  getNivelGeneral,
+  prepararComprobanteValidado,
+  validarComprobante,
+} from '../services/validatorService'
 import { formatCurrency } from '../utils/format'
 import FilterBar from '../components/FilterBar'
 import Modal from '../components/Modal'
 import ComprobanteForm from '../components/ComprobanteForm'
 import EstadoBadge from '../components/EstadoBadge'
 import Pagination from '../components/Pagination'
+import PeriodoSelector from '../components/PeriodoSelector'
 import { useToast } from '../context/ToastContext'
 import Button from '../components/ui/Button'
 import LoadingDots from '../components/LoadingDots'
@@ -31,6 +37,7 @@ interface Filters {
   categoria: string
   estado: string
   tipo: string
+  periodoId: string
 }
 
 function TipoIcon({ tipo }: { tipo: string }) {
@@ -54,6 +61,7 @@ export default function BandejaPage() {
     categoria: '',
     estado: '',
     tipo: '',
+    periodoId: '',
   })
 
   const [editingComprobante, setEditingComprobante] = useState<Comprobante | null>(null)
@@ -83,6 +91,7 @@ export default function BandejaPage() {
     if (filters.categoria) items = items.filter((c) => c.categoria === filters.categoria)
     if (filters.estado) items = items.filter((c) => c.estado === filters.estado)
     if (filters.tipo) items = items.filter((c) => c.tipo === filters.tipo)
+    if (filters.periodoId) items = items.filter((c) => c.periodoId === Number(filters.periodoId))
     return items
   }, [comprobantes, filters])
 
@@ -100,12 +109,24 @@ export default function BandejaPage() {
   const handleSaveEdit = async (data: Partial<Comprobante>) => {
     if (!editingComprobante?.id) return
     try {
-      await updateComprobante(editingComprobante.id, data)
+      const validado = await prepararComprobanteValidado({
+        ...editingComprobante,
+        ...data,
+        id: editingComprobante.id,
+      })
+      const duplicado = validado.validaciones?.some((v) => v.tipo === 'duplicado')
+
+      if (duplicado) {
+        addToast('error', 'Comprobante duplicado')
+        return
+      }
+
+      await updateComprobante(editingComprobante.id, validado)
       setShowEditModal(false)
       setEditingComprobante(null)
       addToast('success', 'Comprobante actualizado')
-    } catch (err) {
-      console.error('Update error:', err)
+    } catch {
+      console.error('Update error')
       addToast('error', 'Error al actualizar el comprobante')
     }
   }
@@ -115,8 +136,8 @@ export default function BandejaPage() {
       await deleteComprobante(id)
       setDeleteConfirm(null)
       addToast('success', 'Comprobante eliminado')
-    } catch (err) {
-      console.error('Delete error:', err)
+    } catch {
+      console.error('Delete error')
       addToast('error', 'Error al eliminar el comprobante')
     }
   }
@@ -125,6 +146,19 @@ export default function BandejaPage() {
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div className="bg-glass border-b border-glass-border px-8 py-4 flex-shrink-0">
         <h2 className="text-text-primary text-lg font-semibold mb-3">Bandeja de Comprobantes</h2>
+        <div className="mb-3">
+          <PeriodoSelector
+            periodoId={filters.periodoId ? Number(filters.periodoId) : undefined}
+            onPeriodoChange={(value) =>
+              setFilters((prev) => ({
+                ...prev,
+                periodoId: value ? String(value) : '',
+              }))
+            }
+            allowEmpty
+            compact
+          />
+        </div>
         <FilterBar filters={filters} onChange={setFilters} />
       </div>
 
@@ -261,13 +295,19 @@ const Row = memo(function Row({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const [validaciones, setValidaciones] = useState<Awaited<ReturnType<typeof validarComprobante>>>([])
+  const [validaciones, setValidaciones] = useState<Awaited<ReturnType<typeof validarComprobante>>>(
+    c.validaciones || [],
+  )
 
   useEffect(() => {
-    validarComprobante(c).then(setValidaciones)
+    if (c.validaciones) {
+      setValidaciones(c.validaciones)
+    } else {
+      validarComprobante(c).then(setValidaciones)
+    }
   }, [c])
 
-  const nivelGeneral = getNivelGeneral(validaciones)
+  const nivelGeneral = c.nivelValidacion || getNivelGeneral(validaciones)
 
   return (
     <tr
@@ -334,13 +374,25 @@ const Row = memo(function Row({
       </td>
     </tr>
   )
-}, (prev, next) => prev.comprobante.id === next.comprobante.id)
+}, (prev, next) =>
+  prev.comprobante.id === next.comprobante.id &&
+  prev.comprobante.estado === next.comprobante.estado &&
+  prev.comprobante.estadoRevision === next.comprobante.estadoRevision &&
+  prev.comprobante.nivelValidacion === next.comprobante.nivelValidacion &&
+  prev.comprobante.validatedAt === next.comprobante.validatedAt
+)
 
 function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
-  const [validaciones, setValidaciones] = useState<Awaited<ReturnType<typeof validarComprobante>>>([])
+  const [validaciones, setValidaciones] = useState<Awaited<ReturnType<typeof validarComprobante>>>(
+    c.validaciones || [],
+  )
 
   useEffect(() => {
-    validarComprobante(c).then(setValidaciones)
+    if (c.validaciones) {
+      setValidaciones(c.validaciones)
+    } else {
+      validarComprobante(c).then(setValidaciones)
+    }
   }, [c])
 
   return (
@@ -372,6 +424,8 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
           {[
             ['Neto Gravado', c.netoGravado],
             ['IVA', c.iva],
+            ['No Gravado', c.noGravado || 0],
+            ['Exento', c.exento || 0],
             ['Percepciones', c.percepciones],
             ['Retenciones', c.retenciones],
             ['Total', c.total],
@@ -385,6 +439,83 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
           ))}
         </div>
       </div>
+
+      {c.moneda && c.moneda !== 'ARS' && (
+        <div>
+          <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Moneda original</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              ['Moneda', c.moneda],
+              ['Tipo cambio', c.tipoCambio?.toFixed(6) || '—'],
+              ['Neto original', c.netoGravadoMonedaOriginal || 0],
+              ['IVA original', c.ivaMonedaOriginal || 0],
+              ['Total original', c.totalMonedaOriginal || 0],
+              ['Total ARS', c.totalPesos || c.total],
+            ].map(([label, value]) => (
+              <div key={label as string} className="p-3 bg-navy-800 rounded-lg border border-glass-border">
+                <p className="text-text-muted text-[10px] uppercase mb-0.5">{label as string}</p>
+                <p className="text-text-primary text-sm font-semibold">
+                  {typeof value === 'number' ? formatCurrency(value) : value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {c.clasificacionFiscal && (
+        <div>
+          <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Clasificacion fiscal</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              ['Tratamiento IVA', c.clasificacionFiscal.tratamientoIVA.replace(/_/g, ' ')],
+              ['Afecta preliquidacion', c.clasificacionFiscal.afectaPreliquidacion ? 'Si' : 'No'],
+              ['Requiere CAE', c.clasificacionFiscal.requiereCAE ? 'Si' : 'No'],
+              ['Confianza', `${Math.round(c.clasificacionFiscal.confianza * 100)}%`],
+            ].map(([label, value]) => (
+              <div key={label} className="p-3 bg-navy-800 rounded-lg border border-glass-border">
+                <p className="text-text-muted text-[10px] uppercase mb-0.5">{label}</p>
+                <p className="text-text-primary text-sm font-semibold">{value}</p>
+              </div>
+            ))}
+          </div>
+          {c.clasificacionFiscal.motivos.length > 0 && (
+            <p className="text-text-secondary text-xs mt-2">
+              {c.clasificacionFiscal.motivos.join('; ')}
+            </p>
+          )}
+        </div>
+      )}
+
+      {c.ivaDetalle && c.ivaDetalle.length > 0 && (
+        <div>
+          <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Detalle IVA</p>
+          <div className="overflow-x-auto border border-glass-border rounded-lg">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-glass-border text-text-muted uppercase">
+                  <th className="text-left px-3 py-2 font-medium">Alicuota</th>
+                  <th className="text-right px-3 py-2 font-medium">Neto</th>
+                  <th className="text-right px-3 py-2 font-medium">IVA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {c.ivaDetalle.map((linea, index) => (
+                  <tr key={`${linea.alicuota}-${index}`} className="border-b border-glass-border/40">
+                    <td className="px-3 py-2 text-text-primary">{linea.alicuota}</td>
+                    <td className="px-3 py-2 text-right text-text-secondary">
+                      ${formatCurrency(linea.neto)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-teal">
+                      ${formatCurrency(linea.iva)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {validaciones.length > 0 && (
         <div>

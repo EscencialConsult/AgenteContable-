@@ -1,8 +1,8 @@
 import { useState, useRef, type ChangeEvent, type KeyboardEvent } from 'react'
-import { Paperclip, SendHorizontal, X } from 'lucide-react'
+import { FileText, Paperclip, SendHorizontal, X } from 'lucide-react'
 
 interface Props {
-  onSend: (text: string, imageBase64?: string, fileName?: string) => void
+  onSend: (text: string, imageBase64?: string, fileName?: string, file?: File) => void
   loading: boolean
 }
 
@@ -15,11 +15,16 @@ export default function ChatInput({ onSend, loading }: Props) {
 
   const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file)
+    if (!file) return
+
+    setSelectedFile(file)
+
+    if (file.type.startsWith('image/')) {
       const reader = new FileReader()
       reader.onload = () => setPreviewUrl(reader.result as string)
       reader.readAsDataURL(file)
+    } else {
+      setPreviewUrl(null)
     }
   }
 
@@ -32,8 +37,8 @@ export default function ChatInput({ onSend, loading }: Props) {
   const handleSend = () => {
     if ((!text.trim() && !selectedFile) || loading) return
 
-    if (previewUrl) {
-      onSend(text.trim(), previewUrl, selectedFile?.name)
+    if (selectedFile) {
+      onSend(text.trim(), previewUrl || undefined, selectedFile.name, selectedFile)
     } else {
       onSend(text.trim())
     }
@@ -64,10 +69,16 @@ export default function ChatInput({ onSend, loading }: Props) {
 
   return (
     <div className="bg-glass/50 backdrop-blur-xl border-t border-glass-border px-6 py-4">
-      {/* Image preview */}
-      {previewUrl && (
+      {/* File preview */}
+      {selectedFile && (
         <div className="mb-3 p-3 bg-glass backdrop-blur-xl rounded-xl border border-teal/30 flex items-center gap-3 animate-slideIn">
-          <img src={previewUrl} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-teal/40" />
+          {previewUrl ? (
+            <img src={previewUrl} alt="Preview" className="w-12 h-12 object-cover rounded-lg border border-teal/40" />
+          ) : (
+            <div className="w-12 h-12 rounded-lg border border-teal/40 bg-teal/10 text-teal flex items-center justify-center">
+              <FileText size={22} />
+            </div>
+          )}
           <span className="flex-1 text-text-secondary text-sm font-medium truncate">{selectedFile?.name}</span>
           <button
             onClick={removeFile}
@@ -84,7 +95,7 @@ export default function ChatInput({ onSend, loading }: Props) {
         {/* Attach button — left */}
         <label
           htmlFor="chatFileInput"
-          title="Adjuntar imagen"
+          title="Adjuntar comprobante"
           className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl text-text-muted hover:text-teal hover:bg-teal/10 transition-all duration-200 cursor-pointer mb-0.5"
         >
           <Paperclip size={18} />
@@ -93,7 +104,7 @@ export default function ChatInput({ onSend, loading }: Props) {
           ref={fileInputRef}
           id="chatFileInput"
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -138,4 +149,3 @@ export default function ChatInput({ onSend, loading }: Props) {
     </div>
   )
 }
-

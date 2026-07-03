@@ -7,6 +7,7 @@ interface Filters {
   categoria: string
   estado: string
   tipo: string
+  periodoId: string
 }
 
 interface Props {
@@ -94,7 +95,15 @@ export default function FilterBar({ filters, onChange }: Props) {
 
       {Object.values(filters).some((v) => v !== '') && (
         <button
-          onClick={() => onChange({ search: '', categoria: '', estado: '', tipo: '' })}
+          onClick={() =>
+            onChange({
+              search: '',
+              categoria: '',
+              estado: '',
+              tipo: '',
+              periodoId: '',
+            })
+          }
           className="px-3 py-2 text-xs text-text-muted hover:text-text-primary transition-colors"
         >
           Limpiar filtros

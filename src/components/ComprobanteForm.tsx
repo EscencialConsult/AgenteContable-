@@ -1,7 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
+import { AlertTriangle, CheckCircle, CircleDollarSign, ReceiptText, ShieldCheck } from 'lucide-react'
 import type { Comprobante, Categoria, EstadoComprobante } from '../types/comprobante'
-import { CATEGORIA_OPTIONS, ESTADO_OPTIONS } from '../config'
-import { parseNumber } from '../utils/format'
+import { ALICUOTAS, CATEGORIA_LABELS, CATEGORIA_OPTIONS, ESTADO_OPTIONS } from '../config'
+import { clasificarFiscalmente } from '../services/fiscalClassifierService'
+import { validarReglasContables } from '../services/validatorService'
+import { formatCurrency, parseNumber } from '../utils/format'
 import Button from './ui/Button'
 
 interface Props {
@@ -22,6 +25,9 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
     condicionIVA: initial.condicionIVA || '',
     netoGravado: initial.netoGravado?.toString() || '',
     iva: initial.iva?.toString() || '',
+    alicuota: initial.ivaDetalle?.[0]?.alicuota || (initial.iva ? '21%' : '0%'),
+    noGravado: initial.noGravado?.toString() || '',
+    exento: initial.exento?.toString() || '',
     percepciones: initial.percepciones?.toString() || '',
     retenciones: initial.retenciones?.toString() || '',
     total: initial.total?.toString() || '',
@@ -36,10 +42,15 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
+  const draft = useMemo<Partial<Comprobante>>(() => {
+    const netoGravado = parseNumber(form.netoGravado)
+    const iva = parseNumber(form.iva)
+    const noGravado = parseNumber(form.noGravado)
+    const exento = parseNumber(form.exento)
+    const percepciones = parseNumber(form.percepciones)
+    const retenciones = parseNumber(form.retenciones)
 
-    const comprobante: Partial<Comprobante> = {
+    return {
       ...initial,
       tipo: form.tipo,
       cuit: form.cuit,
@@ -48,19 +59,68 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
       puntoVenta: parseInt(form.puntoVenta) || 0,
       numero: parseInt(form.numero) || 0,
       condicionIVA: form.condicionIVA,
-      netoGravado: parseNumber(form.netoGravado),
-      iva: parseNumber(form.iva),
-      percepciones: parseNumber(form.percepciones),
-      retenciones: parseNumber(form.retenciones),
+      netoGravado,
+      iva,
+      noGravado,
+      exento,
+      ivaDetalle: [{
+        alicuota: form.alicuota,
+        neto: netoGravado,
+        iva,
+      }],
+      percepciones,
+      retenciones,
+      impuestosDetalle: [
+        ...(percepciones
+          ? [{
+              tipo: 'percepcion' as const,
+              descripcion: 'Percepciones registradas',
+              importe: percepciones,
+            }]
+          : []),
+        ...(retenciones
+          ? [{
+              tipo: 'retencion' as const,
+              descripcion: 'Retenciones registradas',
+              importe: retenciones,
+            }]
+          : []),
+      ],
       total: parseNumber(form.total),
       cae: form.cae,
       fechaVencimiento: form.fechaVencimiento,
       categoria: form.categoria as Categoria,
       estado: form.estado as EstadoComprobante,
+      estadoRevision: form.estado as Comprobante['estadoRevision'],
+      signoFiscal: form.categoria === 'nota_credito' ? -1 : 1,
       observaciones: form.observaciones,
     }
+  }, [form, initial])
 
-    onSave(comprobante)
+  const fiscal = useMemo(() => clasificarFiscalmente(draft), [draft])
+  const reglas = useMemo(() => validarReglasContables({
+    ...draft,
+    categoria: fiscal.categoria,
+    clasificacionFiscal: fiscal,
+  }), [draft, fiscal])
+  const faltantes = useMemo(() => {
+    const fields = [
+      ['Tipo', form.tipo],
+      ['CUIT', form.cuit],
+      ['Razon social', form.razonSocial],
+      ['Fecha', form.fecha],
+      ['Total', form.total],
+    ]
+    if (fiscal.requierePuntoVentaNumero) {
+      fields.push(['Punto de venta', form.puntoVenta], ['Numero', form.numero])
+    }
+    if (fiscal.requiereCAE) fields.push(['CAE', form.cae])
+    return fields.filter(([, value]) => !String(value || '').trim()).map(([label]) => label)
+  }, [fiscal, form])
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    onSave(draft)
   }
 
   const inputClass = 'w-full px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 hover:bg-glass-hover focus:border-teal focus:shadow-[0_0_0_3px_rgba(106,213,203,0.15)]'
@@ -73,6 +133,109 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
           Archivo: {fileName}
         </div>
       )}
+
+      <div className="border border-glass-border rounded-lg bg-navy-900/70 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr]">
+          <div className="p-4 border-b lg:border-b-0 lg:border-r border-glass-border">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Lectura fiscal</p>
+                <div className="flex items-center gap-2 text-text-primary text-sm font-semibold">
+                  <ShieldCheck size={16} className="text-teal" />
+                  {CATEGORIA_LABELS[fiscal.categoria] || fiscal.categoria}
+                </div>
+              </div>
+              <span className="px-2 py-1 rounded-md bg-glass border border-glass-border text-text-secondary text-[11px]">
+                {Math.round(fiscal.confianza * 100)}% confianza
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="px-3 py-2 rounded-md bg-navy-800 border border-glass-border">
+                <p className="text-text-muted mb-0.5">Tratamiento IVA</p>
+                <p className="text-text-primary">{fiscal.tratamientoIVA.replace(/_/g, ' ')}</p>
+              </div>
+              <div className="px-3 py-2 rounded-md bg-navy-800 border border-glass-border">
+                <p className="text-text-muted mb-0.5">Total leido</p>
+                <p className="text-text-primary">${formatCurrency(parseNumber(form.total))}</p>
+              </div>
+            </div>
+            {draft.moneda && draft.moneda !== 'ARS' && (
+              <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                <div className="px-3 py-2 rounded-md bg-navy-800 border border-glass-border">
+                  <p className="text-text-muted mb-0.5">Moneda original</p>
+                  <p className="text-text-primary">
+                    {draft.moneda} {formatCurrency(draft.totalMonedaOriginal || 0)}
+                  </p>
+                </div>
+                <div className="px-3 py-2 rounded-md bg-navy-800 border border-glass-border">
+                  <p className="text-text-muted mb-0.5">Tipo cambio</p>
+                  <p className="text-text-primary">{draft.tipoCambio?.toFixed(6) || '—'}</p>
+                </div>
+              </div>
+            )}
+            {fiscal.motivos.length > 0 && (
+              <p className="text-text-secondary text-xs mt-3">{fiscal.motivos[0]}</p>
+            )}
+          </div>
+
+          <div className="p-4 space-y-3">
+            <div>
+              <p className="text-text-muted text-[11px] uppercase tracking-wide mb-2">Correccion rapida</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['venta', 'Venta', CircleDollarSign],
+                  ['compra', 'Compra', ReceiptText],
+                  ['gasto_deducible', 'Gasto', ReceiptText],
+                  ['gasto_no_computable', 'No computable', AlertTriangle],
+                ].map(([value, label, Icon]) => (
+                  <button
+                    key={value as string}
+                    type="button"
+                    onClick={() => handleChange('categoria', value as string)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition-colors ${
+                      form.categoria === value
+                        ? 'bg-teal/15 border-teal/40 text-teal'
+                        : 'bg-navy-800 border-glass-border text-text-secondary hover:bg-glass-hover hover:text-text-primary'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {label as string}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              {faltantes.length === 0 && reglas.length === 0 ? (
+                <div className="flex items-center gap-2 text-teal text-xs">
+                  <CheckCircle size={14} />
+                  Lectura lista para guardar
+                </div>
+              ) : (
+                <>
+                  {faltantes.length > 0 && (
+                    <div className="px-3 py-2 rounded-md bg-error-bg border border-error/30 text-error text-xs">
+                      Faltan: {faltantes.join(', ')}
+                    </div>
+                  )}
+                  {reglas.slice(0, 3).map((regla) => (
+                    <div
+                      key={regla.tipo}
+                      className={`px-3 py-2 rounded-md border text-xs ${
+                        regla.nivel === 'error'
+                          ? 'bg-error-bg border-error/30 text-error'
+                          : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                      }`}
+                    >
+                      {regla.mensaje}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2 sm:col-span-1">
@@ -171,6 +334,38 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
             className={inputClass}
             value={form.iva}
             onChange={(e) => handleChange('iva', e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Alicuota IVA</label>
+          <select
+            className={inputClass}
+            value={form.alicuota}
+            onChange={(e) => handleChange('alicuota', e.target.value)}
+          >
+            {ALICUOTAS.map((alicuota) => (
+              <option key={alicuota} value={alicuota} className="bg-navy-800">
+                {alicuota}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className={labelClass}>No Gravado</label>
+          <input
+            className={inputClass}
+            value={form.noGravado}
+            onChange={(e) => handleChange('noGravado', e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>Exento</label>
+          <input
+            className={inputClass}
+            value={form.exento}
+            onChange={(e) => handleChange('exento', e.target.value)}
             placeholder="0.00"
           />
         </div>

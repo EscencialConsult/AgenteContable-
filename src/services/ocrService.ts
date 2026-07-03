@@ -4,6 +4,14 @@ export interface OCRProgress {
   text?: string
 }
 
+interface OCRWorkerMessage {
+  type: 'progress' | 'result' | 'error'
+  status?: OCRProgress['status']
+  progress?: number
+  text?: string
+  error?: string
+}
+
 function createWorker(): Worker {
   return new Worker(
     new URL('../workers/ocr.worker.ts', import.meta.url),
@@ -19,10 +27,13 @@ function runOCR(
     const worker = createWorker()
 
     worker.onmessage = (e) => {
-      const msg = e.data
+      const msg = e.data as OCRWorkerMessage
 
       if (msg.type === 'progress') {
-        onProgress?.({ status: msg.status, progress: msg.progress })
+        onProgress?.({
+          status: msg.status ?? 'loading',
+          progress: msg.progress ?? 0,
+        })
       } else if (msg.type === 'result') {
         worker.terminate()
         if (msg.text) {
@@ -30,6 +41,9 @@ function runOCR(
         } else {
           reject(new Error('No se pudo extraer texto del archivo'))
         }
+      } else if (msg.type === 'error') {
+        worker.terminate()
+        reject(new Error(msg.error || 'No se pudo extraer texto del archivo'))
       }
     }
 

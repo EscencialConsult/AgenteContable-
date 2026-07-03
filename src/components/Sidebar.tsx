@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Upload,
   BarChart3,
+  ShieldCheck,
   LogOut,
   Sun,
   Moon,
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/bandeja', label: 'Comprobantes', icon: ClipboardList },
   { to: '/upload', label: 'Cargar', icon: Upload },
   { to: '/preliquidacion', label: 'Preliquidación', icon: BarChart3 },
+  { to: '/backup', label: 'Backup', icon: ShieldCheck },
 ]
 
 interface SidebarProps {
