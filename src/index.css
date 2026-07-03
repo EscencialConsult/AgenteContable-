@@ -1,47 +1,47 @@
 @import "tailwindcss";
 
 @theme {
-  --color-navy-900: #0a1628;
-  --color-navy-800: #0f1f38;
-  --color-teal: #6ad5cb;
-  --color-teal-dark: #4a9d95;
+  --color-navy-900: #171924;
+  --color-navy-800: #232636;
+  --color-teal: #8ddfe4;
+  --color-teal-dark: #d773d8;
   --color-glass: rgba(255, 255, 255, 0.05);
-  --color-glass-hover: rgba(255, 255, 255, 0.1);
-  --color-glass-border: rgba(106, 213, 203, 0.2);
-  --color-text-muted: rgba(255, 255, 255, 0.5);
-  --color-text-secondary: rgba(255, 255, 255, 0.7);
-  --color-error: #ff7675;
-  --color-error-bg: rgba(255, 82, 82, 0.2);
-  --shadow-glow-teal: 0 10px 30px rgba(106, 213, 203, 0.3);
-  --shadow-glow-teal-strong: 0 15px 40px rgba(106, 213, 203, 0.5);
+  --color-glass-hover: rgba(255, 255, 255, 0.09);
+  --color-glass-border: rgba(196, 184, 242, 0.24);
+  --color-text-muted: rgba(246, 247, 251, 0.56);
+  --color-text-secondary: rgba(246, 247, 251, 0.78);
+  --color-error: #ef8aa4;
+  --color-error-bg: rgba(239, 138, 164, 0.18);
+  --shadow-glow-teal: 0 14px 32px rgba(141, 223, 228, 0.18), 0 0 24px rgba(215, 115, 216, 0.12);
+  --shadow-glow-teal-strong: 0 16px 42px rgba(141, 223, 228, 0.24), 0 0 36px rgba(215, 115, 216, 0.2);
   --shadow-modal: 0 25px 60px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 25px 60px rgba(0, 0, 0, 0.4);
-  --glow-teal: rgba(106, 213, 203, 0.3);
-  --glow-teal-strong: rgba(106, 213, 203, 0.5);
-  --ring-teal-subtle: 0 0 0 3px rgba(106, 213, 203, 0.15);
-  --ring-teal-subtle-4: 0 0 0 4px rgba(106, 213, 203, 0.1);
-  --color-text-primary: #ffffff;
+  --glow-teal: rgba(141, 223, 228, 0.28);
+  --glow-teal-strong: rgba(215, 115, 216, 0.28);
+  --ring-teal-subtle: 0 0 0 3px rgba(196, 149, 231, 0.18);
+  --ring-teal-subtle-4: 0 0 0 4px rgba(141, 223, 228, 0.12);
+  --color-text-primary: #f6f7fb;
 }
 
 [data-theme="light"] {
-  --color-navy-900: #f0f4f8;
-  --color-navy-800: #e2e8f0;
-  --color-teal: #0d9488;
-  --color-teal-dark: #0f766e;
-  --color-glass: rgba(255, 255, 255, 0.7);
-  --color-glass-hover: rgba(255, 255, 255, 0.9);
-  --color-glass-border: rgba(13, 148, 136, 0.2);
-  --color-text-muted: rgba(0, 0, 0, 0.4);
-  --color-text-secondary: rgba(0, 0, 0, 0.6);
-  --color-error: #dc2626;
-  --color-error-bg: rgba(220, 38, 38, 0.1);
-  --shadow-glow-teal: 0 10px 30px rgba(13, 148, 136, 0.2);
-  --shadow-glow-teal-strong: 0 15px 40px rgba(13, 148, 136, 0.3);
+  --color-navy-900: #f7f7fb;
+  --color-navy-800: #ffffff;
+  --color-teal: #73d3dc;
+  --color-teal-dark: #cf70d3;
+  --color-glass: rgba(255, 255, 255, 0.82);
+  --color-glass-hover: rgba(255, 255, 255, 0.96);
+  --color-glass-border: rgba(200, 149, 231, 0.3);
+  --color-text-muted: rgba(31, 34, 48, 0.46);
+  --color-text-secondary: rgba(31, 34, 48, 0.72);
+  --color-error: #d95a8d;
+  --color-error-bg: rgba(217, 90, 141, 0.12);
+  --shadow-glow-teal: 0 12px 28px rgba(141, 223, 228, 0.16), 0 0 18px rgba(196, 149, 231, 0.12);
+  --shadow-glow-teal-strong: 0 16px 36px rgba(141, 223, 228, 0.2), 0 0 26px rgba(207, 112, 211, 0.18);
   --shadow-modal: 0 25px 60px rgba(0, 0, 0, 0.15);
-  --glow-teal: rgba(13, 148, 136, 0.3);
-  --glow-teal-strong: rgba(13, 148, 136, 0.5);
-  --shadow-card: 0 25px 60px rgba(0, 0, 0, 0.1);
-  --color-text-primary: #1a1a2e;
+  --glow-teal: rgba(141, 223, 228, 0.28);
+  --glow-teal-strong: rgba(207, 112, 211, 0.24);
+  --shadow-card: 0 20px 44px rgba(126, 139, 171, 0.12);
+  --color-text-primary: #1f2230;
 }
 
 body {
@@ -50,11 +50,11 @@ body {
 }
 
 .bg-gradient-main {
-  background: linear-gradient(135deg, #0a1628 0%, #1a3a52 50%, #2a5a7a 100%);
+  background: linear-gradient(135deg, #171924 0%, #232636 45%, #d773d8 100%);
 }
 
 [data-theme="light"] .bg-gradient-main {
-  background: linear-gradient(135deg, #e0f2fe 0%, #f0f4f8 50%, #ffffff 100%);
+  background: linear-gradient(135deg, #f7f7fb 0%, #eef9fb 42%, #f2d8f4 100%);
 }
 
 @keyframes float {
@@ -84,5 +84,5 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar { width: 10px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(106, 213, 203, 0.3); border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.05); }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(106, 213, 203, 0.5); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(141, 223, 228, 0.32); border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.05); }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(215, 115, 216, 0.42); }

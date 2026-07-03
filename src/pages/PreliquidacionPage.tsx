@@ -3,7 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertTriangle, BarChart3, CheckCircle2, Eye } from 'lucide-react'
 import { getAllComprobantesFlat } from '../db/repositories/comprobanteRepository'
 import { formatPeriodo, getAllPeriodos } from '../db/repositories/periodoRepository'
-import { calcularPreliquidacion, exportToExcel } from '../services/exportService'
+import { calcularPreliquidacion } from '../services/preliquidacionService'
+import { exportToExcel } from '../services/exportService'
 import { CATEGORIA_LABELS } from '../services/validatorService'
 import { formatCurrency } from '../utils/format'
 import Modal from '../components/Modal'
@@ -38,22 +39,25 @@ export default function PreliquidacionPage() {
     observados: filtradosPorPeriodo.filter((c) =>
       (c.estadoRevision || c.estado) === 'observado'
     ).length,
+    sinClasificar: preliquidacion.comprobantesSinClasificar,
+    noAfectan: preliquidacion.comprobantesNoAfectan,
+    incluidos: preliquidacion.comprobantesIncluidos,
     listos: filtradosPorPeriodo.filter((c) =>
       ['validado', 'listo'].includes(c.estadoRevision || c.estado)
     ).length,
-  }), [filtradosPorPeriodo])
+  }), [filtradosPorPeriodo, preliquidacion])
 
   const faltantes = useMemo(() => {
-    const hasVentas = filtradosPorPeriodo.some((c) =>
-      ['venta', 'nota_credito', 'nota_debito'].includes(c.categoria)
-    )
-    const hasCompras = filtradosPorPeriodo.some((c) =>
-      ['compra', 'gasto_deducible', 'gasto_no_computable'].includes(c.categoria)
-    )
+    const hasVentas = preliquidacion.totalVentasNeto !== 0 || preliquidacion.totalVentasIVA !== 0
+    const hasCompras = preliquidacion.totalComprasNeto !== 0 ||
+      preliquidacion.totalComprasIVA !== 0 ||
+      preliquidacion.totalComprasNoComputableNeto !== 0 ||
+      preliquidacion.totalComprasNoComputableIVA !== 0
     const pendientes = filtradosPorPeriodo.filter((c) =>
       (c.estadoRevision || c.estado) === 'pendiente'
     ).length
     const observados = preliquidacion.comprobantesObservados
+    const sinClasificar = preliquidacion.comprobantesSinClasificar
 
     return [
       {
@@ -79,12 +83,27 @@ export default function PreliquidacionPage() {
         detail: pendientes === 0 ? 'No quedan pendientes' : `${pendientes} comprobantes pendientes`,
       },
       {
+        label: 'Clasificacion fiscal',
+        ok: sinClasificar === 0,
+        detail: sinClasificar === 0 ? 'Todos tienen circuito fiscal' : `${sinClasificar} comprobantes sin clasificar`,
+      },
+      {
         label: 'Observaciones',
         ok: observados === 0,
         detail: observados === 0 ? 'Sin observaciones bloqueantes' : `${observados} comprobantes observados`,
       },
     ]
-  }, [filtradosPorPeriodo, preliquidacion.comprobantesObservados])
+  }, [
+    filtradosPorPeriodo,
+    preliquidacion.comprobantesObservados,
+    preliquidacion.comprobantesSinClasificar,
+    preliquidacion.totalComprasIVA,
+    preliquidacion.totalComprasNeto,
+    preliquidacion.totalComprasNoComputableIVA,
+    preliquidacion.totalComprasNoComputableNeto,
+    preliquidacion.totalVentasIVA,
+    preliquidacion.totalVentasNeto,
+  ])
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -154,9 +173,10 @@ export default function PreliquidacionPage() {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <CountCard label="Comprobantes" value={resumenOperativo.total} />
+              <CountCard label="Incluidos IVA" value={resumenOperativo.incluidos} color="text-teal" />
               <CountCard label="Pendientes" value={resumenOperativo.pendientes} color="text-yellow-400" />
               <CountCard label="Observados" value={preliquidacion.comprobantesObservados || resumenOperativo.observados} color="text-error" />
-              <CountCard label="Listos" value={resumenOperativo.listos} color="text-teal" />
+              <CountCard label="Sin clasificar" value={resumenOperativo.sinClasificar} color="text-yellow-400" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -229,6 +249,12 @@ export default function PreliquidacionPage() {
             {preliquidacion.comprobantesObservados > 0 && (
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3 text-yellow-300 text-sm">
                 Hay comprobantes observados en el periodo. La preliquidacion es estimada y requiere revision antes de presentar o copiar datos.
+              </div>
+            )}
+
+            {preliquidacion.comprobantesNoAfectan > 0 && (
+              <div className="bg-error-bg border border-error/30 rounded-lg px-4 py-3 text-error text-sm">
+                {preliquidacion.comprobantesNoAfectan} comprobantes no afectan el calculo de IVA por estar sin clasificar o marcados como no computables.
               </div>
             )}
 

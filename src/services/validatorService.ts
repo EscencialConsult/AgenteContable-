@@ -1,7 +1,7 @@
 import type { Comprobante, NivelValidacion, Validacion } from '../types/comprobante'
 import { db } from '../db/database'
 import { VALIDACION } from '../config'
-import { clasificarFiscalmente, getSignoFiscalPorCategoria } from './fiscalClassifierService'
+import { clasificarFiscalmente, getSignoFiscalPorComprobante } from './fiscalClassifierService'
 
 const IMPORTE_TOLERANCIA = 1
 
@@ -276,7 +276,10 @@ export function validarReglasContables(
     })
   }
 
-  if (clasificacion.categoria === 'nota_credito' && comprobante.signoFiscal !== -1) {
+  if (
+    (clasificacion.categoria === 'nota_credito' || tipo.includes('NOTA DE CREDITO')) &&
+    comprobante.signoFiscal !== -1
+  ) {
     validaciones.push({
       tipo: 'signo_nota_credito',
       mensaje: 'Nota de credito debe restar importes en la preliquidacion',
@@ -300,6 +303,14 @@ export function validarReglasContables(
       tipo: 'clasificacion_baja_confianza',
       mensaje: 'Clasificacion fiscal con baja confianza: revisar categoria antes de cerrar el periodo',
       nivel: 'warning',
+    })
+  }
+
+  if (clasificacion.requiereCAE && clasificacion.afectaPreliquidacion === false) {
+    validaciones.push({
+      tipo: 'clasificacion_fiscal_pendiente',
+      mensaje: 'Clasificar el comprobante como venta, compra, gasto o no computable antes de preliquidar IVA',
+      nivel: 'error',
     })
   }
 
@@ -413,7 +424,10 @@ export async function prepararComprobanteValidado(
   const comprobanteClasificado: Partial<Comprobante> = {
     ...comprobanteNormalizado,
     categoria: clasificacionFiscal.categoria,
-    signoFiscal: getSignoFiscalPorCategoria(clasificacionFiscal.categoria),
+    signoFiscal: getSignoFiscalPorComprobante({
+      ...comprobanteNormalizado,
+      categoria: clasificacionFiscal.categoria,
+    }),
     clasificacionFiscal,
   }
   const validaciones = await validarComprobante(comprobanteClasificado)

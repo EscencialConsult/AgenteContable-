@@ -48,7 +48,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-navy-900 font-[Inter,system-ui,sans-serif]">
       {/* ── Left decorative panel (hidden on mobile) ── */}
-      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden bg-gradient-to-br from-teal/30 via-navy-800 to-navy-900 flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden bg-gradient-to-br from-teal/25 via-navy-800 to-teal-dark/40 flex-col justify-between p-12">
         {/* Animated blobs */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute w-72 h-72 rounded-full bg-teal/10 blur-3xl -top-16 -left-16 animate-pulse" />
@@ -65,15 +65,15 @@ export default function LoginPage() {
           ) : (
             <img
               src={logoSrc}
-              alt="Escencial"
-              className="h-14 w-auto object-contain mb-8 animate-glow"
+              alt="ONE"
+              className="h-20 w-auto object-contain mb-8 animate-glow"
               fetchPriority="high"
               onError={() => setLogoError(true)}
             />
           )}
           <h1 className="text-text-primary text-4xl font-bold leading-tight mb-3">
-            Agente<br />
-            <span className="text-teal">Contable</span>
+            
+            <span className="text-teal">Agente Contable</span>
           </h1>
           <p className="text-text-secondary text-base leading-relaxed max-w-xs">
             Tu asistente inteligente para gestión contable, impuestos y comprobantes.
@@ -101,7 +101,7 @@ export default function LoginPage() {
 
         {/* Bottom: tagline */}
         <p className="relative z-10 text-text-muted text-xs">
-          Fabricado por <span className="text-teal font-medium">Escencial</span>
+          Fabricado por <span className="text-teal font-medium">ONE</span>
         </p>
       </div>
 
@@ -131,9 +131,9 @@ export default function LoginPage() {
                 <span className="text-teal text-xl font-bold">E</span>
               </div>
             ) : (
-              <img src={logoSrc} alt="Escencial" className="h-10 w-auto object-contain mx-auto mb-3" onError={() => setLogoError(true)} />
+              <img src={logoSrc} alt="ONE" className="h-16 w-auto object-contain mx-auto mb-3" onError={() => setLogoError(true)} />
             )}
-            <h1 className="text-text-primary text-2xl font-bold">Agente <span className="text-teal">Contable</span></h1>
+            <h1 className="text-text-primary text-2xl font-bold">ONE <span className="text-teal">Agente Contable</span></h1>
           </div>
 
           <div className="bg-glass backdrop-blur-2xl rounded-3xl p-10 shadow-card border border-glass-border">
@@ -155,7 +155,7 @@ export default function LoginPage() {
                 </label>
                 <div className={`flex items-center gap-3 bg-glass/50 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
                   focusedField === 'nombre'
-                    ? 'border-teal shadow-[0_0_0_3px_rgba(106,213,203,0.12)]'
+                    ? 'border-teal shadow-ring-teal-subtle'
                     : 'border-glass-border'
                 }`}>
                   <User size={17} className={`shrink-0 transition-colors duration-200 ${focusedField === 'nombre' ? 'text-teal' : 'text-text-muted'}`} />
@@ -180,7 +180,7 @@ export default function LoginPage() {
                 </label>
                 <div className={`flex items-center gap-3 bg-glass/50 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
                   focusedField === 'dni'
-                    ? 'border-teal shadow-[0_0_0_3px_rgba(106,213,203,0.12)]'
+                    ? 'border-teal shadow-ring-teal-subtle'
                     : 'border-glass-border'
                 }`}>
                   <Lock size={17} className={`shrink-0 transition-colors duration-200 ${focusedField === 'dni' ? 'text-teal' : 'text-text-muted'}`} />
@@ -216,7 +216,7 @@ export default function LoginPage() {
                 className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer mt-2 ${
                   loading
                     ? 'bg-teal/50 text-navy-900/70 cursor-not-allowed'
-                    : 'bg-teal text-navy-900 hover:bg-teal/85 hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_24px_rgba(106,213,203,0.4)]'
+                    : 'bg-teal text-navy-900 hover:bg-teal/85 hover:scale-[1.02] active:scale-[0.98] shadow-glow-teal hover:shadow-glow-teal-strong'
                 }`}
               >
                 {loading ? (

@@ -21,7 +21,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     const favicon = document.getElementById('favicon') as HTMLLinkElement | null
     if (favicon) {
-      favicon.href = theme === 'dark' ? '/logoEscencial.png' : '/logoEscencial-light.png'
+      favicon.href = theme === 'dark' ? '/logoOne-dark.png' : '/logoOne-light.png'
     }
   }, [theme])
 

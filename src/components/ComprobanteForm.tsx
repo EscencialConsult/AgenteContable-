@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { AlertTriangle, CheckCircle, CircleDollarSign, ReceiptText, ShieldCheck } from 'lucide-react'
 import type { Comprobante, Categoria, EstadoComprobante } from '../types/comprobante'
 import { ALICUOTAS, CATEGORIA_LABELS, CATEGORIA_OPTIONS, ESTADO_OPTIONS } from '../config'
-import { clasificarFiscalmente } from '../services/fiscalClassifierService'
+import { clasificarFiscalmente, getSignoFiscalPorComprobante } from '../services/fiscalClassifierService'
 import { validarReglasContables } from '../services/validatorService'
 import { formatCurrency, parseNumber } from '../utils/format'
 import Button from './ui/Button'
@@ -50,7 +50,7 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
     const percepciones = parseNumber(form.percepciones)
     const retenciones = parseNumber(form.retenciones)
 
-    return {
+    const draftComprobante: Partial<Comprobante> = {
       ...initial,
       tipo: form.tipo,
       cuit: form.cuit,
@@ -92,8 +92,12 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
       categoria: form.categoria as Categoria,
       estado: form.estado as EstadoComprobante,
       estadoRevision: form.estado as Comprobante['estadoRevision'],
-      signoFiscal: form.categoria === 'nota_credito' ? -1 : 1,
       observaciones: form.observaciones,
+    }
+
+    return {
+      ...draftComprobante,
+      signoFiscal: getSignoFiscalPorComprobante(draftComprobante),
     }
   }, [form, initial])
 
@@ -123,7 +127,7 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
     onSave(draft)
   }
 
-  const inputClass = 'w-full px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 hover:bg-glass-hover focus:border-teal focus:shadow-[0_0_0_3px_rgba(106,213,203,0.15)]'
+  const inputClass = 'w-full px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle'
   const labelClass = 'block text-text-secondary text-xs font-medium uppercase tracking-wide mb-1.5'
 
   return (

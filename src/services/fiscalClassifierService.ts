@@ -23,6 +23,22 @@ function isFactura(tipo: string): boolean {
   return tipo.includes('FACTURA')
 }
 
+function hasCategoriaPreliquidable(categoria?: Categoria): boolean {
+  return ['venta', 'compra', 'gasto_deducible'].includes(categoria || '')
+}
+
+function getTratamientoPorCategoria(
+  categoria: Categoria,
+  iva: number,
+): ClasificacionFiscal['tratamientoIVA'] {
+  if (categoria === 'venta') return iva > 0 ? 'debito_fiscal' : 'sin_iva'
+  if (categoria === 'compra' || categoria === 'gasto_deducible') {
+    return iva > 0 ? 'credito_fiscal' : 'sin_iva'
+  }
+  if (categoria === 'gasto_no_computable') return 'no_computable'
+  return 'sin_iva'
+}
+
 function isPagoSinFactura(tipo: string, text: string, observaciones: string): boolean {
   return tipo.includes('RECIBO') && (
     includesAny(text, ['COMPROBANTE DE PAGO', 'MERCADO PAGO', 'PAGO FACIL', 'PAGO SIN FACTURA']) ||
@@ -71,39 +87,55 @@ export function clasificarFiscalmente(
     confianza = 0.92
     motivos.push('Pago o recibo sin factura fiscal: no genera credito fiscal')
   } else if (isNotaCredito(tipo)) {
-    categoria = 'nota_credito'
     requiereCAE = true
     requierePuntoVentaNumero = true
-    afectaPreliquidacion = true
-    confianza = 0.86
-    tratamientoIVA = (comprobante.iva || 0) > 0 ? 'credito_fiscal' : 'sin_iva'
-    motivos.push('Nota de credito: revierte importes con signo fiscal negativo')
+    confianza = 0.64
+    if (hasCategoriaPreliquidable(categoria)) {
+      tratamientoIVA = getTratamientoPorCategoria(categoria, comprobante.iva || 0)
+      afectaPreliquidacion = true
+      confianza = 0.82
+      motivos.push('Nota de credito clasificada manualmente: revierte importes con signo fiscal negativo')
+    } else {
+      categoria = categoria === 'nota_credito' ? categoria : 'sin_clasificar'
+      tratamientoIVA = 'sin_iva'
+      afectaPreliquidacion = false
+      motivos.push('Nota de credito pendiente de clasificar como venta, compra o gasto antes de preliquidar')
+    }
   } else if (isNotaDebito(tipo)) {
-    categoria = 'nota_debito'
     requiereCAE = true
     requierePuntoVentaNumero = true
-    afectaPreliquidacion = true
-    confianza = 0.84
-    tratamientoIVA = (comprobante.iva || 0) > 0 ? 'credito_fiscal' : 'sin_iva'
-    motivos.push('Nota de debito: suma importes al periodo')
+    confianza = 0.64
+    if (hasCategoriaPreliquidable(categoria)) {
+      tratamientoIVA = getTratamientoPorCategoria(categoria, comprobante.iva || 0)
+      afectaPreliquidacion = true
+      confianza = 0.82
+      motivos.push('Nota de debito clasificada manualmente: suma importes al periodo')
+    } else {
+      categoria = categoria === 'nota_debito' ? categoria : 'sin_clasificar'
+      tratamientoIVA = 'sin_iva'
+      afectaPreliquidacion = false
+      motivos.push('Nota de debito pendiente de clasificar como venta, compra o gasto antes de preliquidar')
+    }
   } else if (isFactura(tipo)) {
     requiereCAE = true
     requierePuntoVentaNumero = true
-    afectaPreliquidacion = true
-    confianza = 0.8
+    confianza = 0.58
 
-    if (tipo.includes('FACTURA A') || (comprobante.iva || 0) > 0) {
-      categoria = categoria === 'venta' ? 'venta' : 'compra'
-      tratamientoIVA = categoria === 'venta' ? 'debito_fiscal' : 'credito_fiscal'
-      motivos.push('Factura con IVA discriminado')
-    } else if (tipo.includes('FACTURA B') || tipo.includes('FACTURA C')) {
-      categoria = categoria === 'venta' ? 'venta' : 'gasto_deducible'
-      tratamientoIVA = 'sin_iva'
-      motivos.push('Factura sin IVA discriminado')
+    if (hasCategoriaPreliquidable(categoria)) {
+      tratamientoIVA = getTratamientoPorCategoria(categoria, comprobante.iva || 0)
+      afectaPreliquidacion = true
+      confianza = 0.82
+      motivos.push('Factura fiscal clasificada manualmente para preliquidacion')
+    } else if (categoria === 'gasto_no_computable') {
+      tratamientoIVA = 'no_computable'
+      afectaPreliquidacion = false
+      confianza = 0.78
+      motivos.push('Factura marcada como no computable')
     } else {
-      categoria = categoria === 'sin_clasificar' ? 'compra' : categoria
-      tratamientoIVA = (comprobante.iva || 0) > 0 ? 'credito_fiscal' : 'sin_iva'
-      motivos.push('Factura fiscal detectada')
+      categoria = 'sin_clasificar'
+      tratamientoIVA = 'sin_iva'
+      afectaPreliquidacion = false
+      motivos.push('Factura fiscal pendiente de clasificar como venta, compra o gasto antes de preliquidar')
     }
   } else if (tipo.includes('TICKET') || tipo.includes('RECIBO')) {
     categoria = categoria === 'sin_clasificar' ? 'gasto_deducible' : categoria
@@ -128,9 +160,8 @@ export function clasificarFiscalmente(
     afectaPreliquidacion = false
   }
 
-  if (categoria === 'venta') tratamientoIVA = (comprobante.iva || 0) > 0 ? 'debito_fiscal' : 'sin_iva'
-  if (categoria === 'compra' || categoria === 'gasto_deducible') {
-    tratamientoIVA = (comprobante.iva || 0) > 0 ? 'credito_fiscal' : 'sin_iva'
+  if (hasCategoriaPreliquidable(categoria) && !isFactura(tipo) && !isNotaCredito(tipo) && !isNotaDebito(tipo)) {
+    tratamientoIVA = getTratamientoPorCategoria(categoria, comprobante.iva || 0)
   }
 
   return {
@@ -146,4 +177,10 @@ export function clasificarFiscalmente(
 
 export function getSignoFiscalPorCategoria(categoria: Categoria): 1 | -1 {
   return categoria === 'nota_credito' ? -1 : 1
+}
+
+export function getSignoFiscalPorComprobante(comprobante: Partial<Comprobante>): 1 | -1 {
+  const tipo = normalize(comprobante.tipo || '')
+  if (isNotaCredito(tipo) || comprobante.categoria === 'nota_credito') return -1
+  return 1
 }

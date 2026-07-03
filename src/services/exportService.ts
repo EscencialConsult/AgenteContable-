@@ -1,19 +1,23 @@
 import * as XLSX from 'xlsx-js-style'
 import type { Comprobante, IVADetalle } from '../types/comprobante'
 import { CATEGORIA_LABELS, ALICUOTAS } from '../config'
+import type { PreliquidacionResult } from './preliquidacionService'
+
+export { calcularPreliquidacion } from './preliquidacionService'
+export type { PreliquidacionResult, ResumenIVA } from './preliquidacionService'
 
 type WorkSheet = XLSX.WorkSheet & {
   '!freeze'?: { xSplit?: number; ySplit?: number; topLeftCell?: string; activePane?: string; state?: string }
 }
 
 const COLORS = {
-  navy: '1F2937',
-  navyDark: '111827',
-  teal: '14B8A6',
-  tealLight: 'CCFBF1',
+  navy: '3E425B',
+  navyDark: '232636',
+  teal: '8DDFE4',
+  tealLight: 'F2D8F4',
   gray: 'E5E7EB',
   grayLight: 'F8FAFC',
-  white: 'FFFFFF',
+  white: 'F6F7FB',
 }
 
 const currencyFormat = '"$"#,##0'
@@ -64,39 +68,12 @@ function applyTableStyle(ws: WorkSheet, headerRange: string, bodyRange: string, 
   if (currencyRange) formatRange(ws, currencyRange, currencyFormat)
 }
 
-export interface ResumenIVA {
-  alicuota: string
-  netoVentas: number
-  ivaVentas: number
-  netoComprasComputable: number
-  ivaComprasComputable: number
-  netoComprasNoComputable: number
-  ivaComprasNoComputable: number
-}
-
-export interface PreliquidacionResult {
-  periodo: string
-  resumenPorAlicuota: ResumenIVA[]
-  totalVentasNeto: number
-  totalVentasIVA: number
-  totalComprasNeto: number
-  totalComprasIVA: number
-  totalComprasNoComputableNeto: number
-  totalComprasNoComputableIVA: number
-  noGravado: number
-  exento: number
-  percepciones: number
-  retenciones: number
-  saldoTecnico: number
-  saldoEstimado: number
-  comprobantesComputables: number
-  comprobantesObservados: number
-  comprobantes: Comprobante[]
-}
-
 function getSignoFiscal(comprobante: Comprobante): 1 | -1 {
   if (comprobante.signoFiscal) return comprobante.signoFiscal
-  return comprobante.categoria === 'nota_credito' ? -1 : 1
+  return comprobante.tipo.toUpperCase().includes('NOTA DE CREDITO') ||
+    comprobante.categoria === 'nota_credito'
+    ? -1
+    : 1
 }
 
 function getLineasIVA(comprobante: Comprobante): IVADetalle[] {
@@ -121,127 +98,6 @@ function inferAlicuota(comprobante: Comprobante): string {
   return match || '21%'
 }
 
-function isVenta(comprobante: Comprobante): boolean {
-  return ['venta', 'nota_credito', 'nota_debito'].includes(comprobante.categoria)
-}
-
-function isCompra(comprobante: Comprobante): boolean {
-  return ['compra', 'gasto_deducible', 'gasto_no_computable'].includes(comprobante.categoria)
-}
-
-function isCompraComputable(comprobante: Comprobante): boolean {
-  return ['compra', 'gasto_deducible'].includes(comprobante.categoria)
-}
-
-function isObservado(comprobante: Comprobante): boolean {
-  return (comprobante.nivelValidacion || 'success') === 'error' ||
-    (comprobante.estadoRevision || comprobante.estado) === 'observado'
-}
-
-export function calcularPreliquidacion(
-  comprobantes: Comprobante[],
-  periodo: string,
-): PreliquidacionResult {
-  const resumenPorAlicuota: ResumenIVA[] = ALICUOTAS.map((alicuota) => ({
-    alicuota,
-    netoVentas: 0,
-    ivaVentas: 0,
-    netoComprasComputable: 0,
-    ivaComprasComputable: 0,
-    netoComprasNoComputable: 0,
-    ivaComprasNoComputable: 0,
-  }))
-
-  const getResumen = (alicuota: string) => {
-    const existing = resumenPorAlicuota.find((r) => r.alicuota === alicuota)
-    if (existing) return existing
-
-    const created: ResumenIVA = {
-      alicuota,
-      netoVentas: 0,
-      ivaVentas: 0,
-      netoComprasComputable: 0,
-      ivaComprasComputable: 0,
-      netoComprasNoComputable: 0,
-      ivaComprasNoComputable: 0,
-    }
-    resumenPorAlicuota.push(created)
-    return created
-  }
-
-  let noGravado = 0
-  let exento = 0
-  let percepciones = 0
-  let retenciones = 0
-
-  for (const comprobante of comprobantes) {
-    const signo = getSignoFiscal(comprobante)
-
-    noGravado += (comprobante.noGravado || 0) * signo
-    exento += (comprobante.exento || 0) * signo
-
-    const percepcionesComprobante =
-      comprobante.impuestosDetalle
-        ?.filter((i) => i.tipo === 'percepcion')
-        .reduce((sum, i) => sum + i.importe, 0) ?? comprobante.percepciones
-    const retencionesComprobante =
-      comprobante.impuestosDetalle
-        ?.filter((i) => i.tipo === 'retencion')
-        .reduce((sum, i) => sum + i.importe, 0) ?? comprobante.retenciones
-
-    percepciones += percepcionesComprobante * signo
-    retenciones += retencionesComprobante * signo
-
-    for (const linea of getLineasIVA(comprobante)) {
-      const resumen = getResumen(linea.alicuota)
-      const neto = linea.neto * signo
-      const iva = linea.iva * signo
-
-      if (isVenta(comprobante)) {
-        resumen.netoVentas += neto
-        resumen.ivaVentas += iva
-      } else if (isCompra(comprobante)) {
-        if (isCompraComputable(comprobante)) {
-          resumen.netoComprasComputable += neto
-          resumen.ivaComprasComputable += iva
-        } else {
-          resumen.netoComprasNoComputable += neto
-          resumen.ivaComprasNoComputable += iva
-        }
-      }
-    }
-  }
-
-  const totalVentasNeto = resumenPorAlicuota.reduce((s, r) => s + r.netoVentas, 0)
-  const totalVentasIVA = resumenPorAlicuota.reduce((s, r) => s + r.ivaVentas, 0)
-  const totalComprasNeto = resumenPorAlicuota.reduce((s, r) => s + r.netoComprasComputable, 0)
-  const totalComprasIVA = resumenPorAlicuota.reduce((s, r) => s + r.ivaComprasComputable, 0)
-  const totalComprasNoComputableNeto = resumenPorAlicuota.reduce((s, r) => s + r.netoComprasNoComputable, 0)
-  const totalComprasNoComputableIVA = resumenPorAlicuota.reduce((s, r) => s + r.ivaComprasNoComputable, 0)
-  const saldoTecnico = totalVentasIVA - totalComprasIVA
-  const saldoEstimado = saldoTecnico - percepciones - retenciones
-
-  return {
-    periodo,
-    resumenPorAlicuota,
-    totalVentasNeto,
-    totalVentasIVA,
-    totalComprasNeto,
-    totalComprasIVA,
-    totalComprasNoComputableNeto,
-    totalComprasNoComputableIVA,
-    noGravado,
-    exento,
-    percepciones,
-    retenciones,
-    saldoTecnico,
-    saldoEstimado,
-    comprobantesComputables: comprobantes.filter((c) => !isObservado(c)).length,
-    comprobantesObservados: comprobantes.filter(isObservado).length,
-    comprobantes,
-  }
-}
-
 export function exportToExcel(data: PreliquidacionResult): void {
   const wb = XLSX.utils.book_new()
 
@@ -249,15 +105,15 @@ export function exportToExcel(data: PreliquidacionResult): void {
     ['Preliquidacion IVA', '', '', '', '', '', ''],
     ['Periodo', data.periodo, 'Generado', new Date().toLocaleDateString('es-AR'), '', '', ''],
     [],
-    ['Comprobantes', 'Computables', 'Observados', 'Saldo tecnico', 'Saldo estimado', 'IVA compras', 'IVA ventas'],
+    ['Comprobantes', 'Incluidos', 'Observados', 'Pendientes', 'Sin clasificar', 'Saldo tecnico', 'Saldo estimado'],
     [
       data.comprobantes.length,
-      data.comprobantesComputables,
+      data.comprobantesIncluidos,
       data.comprobantesObservados,
+      data.comprobantesPendientes,
+      data.comprobantesSinClasificar,
       data.saldoTecnico,
       data.saldoEstimado,
-      data.totalComprasIVA,
-      data.totalVentasIVA,
     ],
     [],
     ['Resumen de IVA', '', '', '', '', '', ''],

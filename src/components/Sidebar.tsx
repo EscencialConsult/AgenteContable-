@@ -47,7 +47,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
   return (
     <aside className="w-64 h-full bg-navy-800/50 backdrop-blur-xl border-r border-glass-border flex flex-col">
       <div className="p-6 border-b border-glass-border flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {logoError ? (
             <div className="w-9 h-9 rounded-lg bg-teal/20 border border-teal/30 flex items-center justify-center shrink-0">
               <span className="text-teal text-xs font-bold">E</span>
@@ -55,14 +55,14 @@ export default function Sidebar({ onClose }: SidebarProps) {
           ) : (
             <img
               src={logoSrc}
-              alt="Escencial"
-              className="h-9 w-auto object-contain max-w-[140px]"
+              alt="ONE"
+              className="h-12 w-auto object-contain max-w-[176px]"
               loading="lazy"
               onError={() => setLogoError(true)}
             />
           )}
           <div>
-            <h1 className="text-text-primary font-bold text-sm tracking-wide">ESCENCIAL</h1>
+            <h1 className="text-text-primary font-bold text-base tracking-wide">ONE</h1>
             <p className="text-text-muted text-xs">Agente Contable</p>
           </div>
         </div>

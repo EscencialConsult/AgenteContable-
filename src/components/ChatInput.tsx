@@ -91,7 +91,7 @@ export default function ChatInput({ onSend, loading }: Props) {
       )}
 
       {/* Input row — unified pill */}
-      <div className="flex items-end gap-2 bg-glass backdrop-blur-xl rounded-2xl border-2 border-glass-border transition-all duration-300 focus-within:border-teal focus-within:shadow-[0_0_0_3px_rgba(106,213,203,0.12)] px-4 py-3">
+      <div className="flex items-end gap-2 bg-glass backdrop-blur-xl rounded-2xl border-2 border-glass-border transition-all duration-300 focus-within:border-teal focus-within:shadow-ring-teal-subtle px-4 py-3">
         {/* Attach button — left */}
         <label
           htmlFor="chatFileInput"
@@ -131,7 +131,7 @@ export default function ChatInput({ onSend, loading }: Props) {
           aria-label="Enviar mensaje"
           className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 mb-0.5 ${
             canSend
-              ? 'bg-teal text-navy-900 hover:bg-teal/80 hover:scale-105 shadow-[0_4px_14px_rgba(106,213,203,0.35)] cursor-pointer'
+              ? 'bg-teal text-navy-900 hover:bg-teal/80 hover:scale-105 shadow-glow-teal cursor-pointer'
               : 'bg-glass-hover text-text-muted cursor-not-allowed opacity-50'
           }`}
         >

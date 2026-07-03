@@ -1,230 +1,220 @@
-# Agente Contable — Escencial
+# ONE - Agente Contable
 
-App contable con chat IA (OpenAI Assistants), OCR de comprobantes (Tesseract.js), bandeja de gestión y preliquidación de IVA.
+_Analisis actualizado: 3 de julio de 2026_
 
-**Stack:** React 19 + TypeScript + Vite + Tailwind v4 + Dexie (IndexedDB) + Express + Vercel Edge
+App contable con chat IA, OCR de comprobantes, bandeja operativa, preliquidacion de IVA, backup local y branding renovado.
+
+**Stack:** React 19 + TypeScript + Vite + Tailwind v4 + Dexie (IndexedDB) + Express + Edge Functions + Netlify Functions
 
 ---
 
-## Diagnóstico General
+## Diagnostico General
 
-| Categoría | Score | Prioridad |
+| Categoria | Score | Prioridad |
 |---|---|---|
 | Arquitectura | **8.5/10** | Baja |
-| Frontend | **9/10** | Baja |
-| Backend | **8.5/10** | Baja |
-| UI | **9/10** | Baja |
+| Frontend | **8.5/10** | Baja |
+| Backend | **8/10** | Media |
+| UI | **8.5/10** | Baja |
 | UX | **8.5/10** | Baja |
-| Seguridad | **7/10** | Baja |
-| Rendimiento | **7/10** | Baja |
-| Escalabilidad | 4/10 | Alta |
-| Mantenibilidad | **8/10** | Baja |
-| Calidad del código | **7.5/10** | Baja |
-| Reutilización | **7.5/10** | Baja |
+| Seguridad | **7.5/10** | Media |
+| Rendimiento | **7.5/10** | Media |
+| Escalabilidad | **4.5/10** | Alta |
+| Mantenibilidad | **8.5/10** | Baja |
+| Calidad del codigo | **8/10** | Baja |
+| Reutilizacion | **8/10** | Baja |
 | Accesibilidad | **8/10** | Baja |
-| Preparación producción | 5/10 | Alta |
-| **Promedio** | **7.5/10** | |
+| Preparacion produccion | **6/10** | Alta |
+| **Promedio** | **7.8/10** | |
 
 ---
 
-## Por Categoría
+## Por Categoria
 
-### Arquitectura (8.5/10) ↑
+### Arquitectura (8.5/10)
 
 **Bien**
-- Separación en capas clara: `clients/` → `services/` → `controllers/` → `routes/`
-- Lógica de negocio compartida entre Express y Edge runtimes (openaiService, chatController)
-- Config centralizada en `config/` (JS vanilla compatible con todos los runtimes)
-- API client abstraction en frontend (`apiClient.ts`, `chatService.ts`)
-- Base de datos local con capa repository (`repositories/`)
-- ✅ **Error Boundaries** por ruta — un error no tumba toda la app
-- ✅ **Lazy loading** de rutas completas con `React.lazy` + `Suspense`
+- Separacion clara entre frontend, backend Express y funciones edge.
+- Config compartida en `config/` y barrel TS en `src/config/index.ts`.
+- Rutas lazy-loaded con `React.lazy` + `Suspense`.
+- La logica de preliquidacion fue extraida a `src/services/preliquidacionService.ts`, lo que reduce acoplamiento con la exportacion Excel.
+- El proyecto ya contempla dos targets de deploy: Vercel y Netlify.
 
 **Por mejorar**
-- (sin items pendientes)
+- Siguen conviviendo varios targets de runtime y deploy, lo que suma complejidad operativa.
+- Conviene mantener sincronizados `README.md`, `ARCHITECTURE.md` y `ScoreActual.md` para que la documentacion no vuelva a quedar atrasada.
 
-### Frontend (9/10) ↑
+### Frontend (8.5/10)
 
 **Bien**
-- React 19 con hooks modernos y componentes modulares
-- TypeScript estricto en toda la app
-- Uso correcto de `useMemo` y `useEffect`
-- Llamadas a API abstraídas en service layer (`chatService`, `authService`, `apiClient`)
-- Operaciones de IndexedDB abstraídas en repositorios
-- ✅ **Paginación** en tabla de comprobantes (componente Pagination reutilizable)
-- ✅ **OCR en Web Worker** — pdfjs-dist y tesseract.js fuera del bundle principal
-- ✅ **Lazy loading** de todas las rutas con `React.lazy` + `Suspense`
-- ✅ **`React.memo`** en filas de tabla con validaciones (compara por id)
+- Componentizacion razonable y rutas protegidas/publicas bien separadas.
+- OCR en Web Worker con `tesseract.js` y `pdfjs-dist`.
+- Estado local consistente para auth, tema, toasts y datos de negocio.
+- Flujo de carga, validacion y preliquidacion bien conectado.
 
 **Por mejorar**
-- (sin items pendientes)
+- Hay bastante logica de pagina dentro de componentes grandes como `BandejaPage` y `PreliquidacionPage`.
+- Faltan hooks de dominio tipo `useComprobantes`, `useBackup`, `usePreliquidacion`.
 
-### Backend (8.5/10) ↑
+### Backend (8/10)
 
 **Bien**
-- Express + Vercel Edge Function con código compartido
-- Manejo de errores centralizado (`errorHandler.js`, `formatEdgeError`)
-- Autenticación JWT real con middleware en ambos runtimes
-- ✅ **OpenAI SDK con `createAndPoll`** — polling eficiente con backoff automático (vs while + sleep fijo)
-- ✅ **Cleanup de threads** — se eliminan post-respuesta (try/finally, best-effort)
-- ✅ **Rate limiting** en login (20 intentos/15min, express-rate-limit)
-- ✅ **Health check** en `GET /api/health`
-- ✅ **Compresión gzip** (compression middleware)
-- ✅ **Validación de schema** en requests (middleware validateBody)
+- Express y edge functions comparten servicios y middleware clave.
+- `compression`, `express-rate-limit`, health check y validacion de body ya estan incorporados.
+- JWT con `jose` y validacion de DNI via Google Apps Script.
+- Se agregaron funciones para Netlify compatibles con las rutas actuales `/api/...`.
 
 **Por mejorar**
-- Sin tests automatizados
+- No hay tests automatizados de rutas, auth o integracion backend.
+- La superficie de deploy quedo mejor, pero todavia no hay un flujo CI que la verifique en ambos targets.
 
-### UI (9/10) ↑
-
-**Bien**
-- Diseño glass-morphism cuidado y coherente
-- Paleta consistente (teal / navy)
-- Animaciones sutiles y transiciones suaves
-- ✅ **Sidebar responsive** — se colapsa en mobile con overlay y botón hamburguesa
-- ✅ **Tablas con scroll horizontal** en pantallas chicas (overflow-x-auto)
-- ✅ **Tema claro/oscuro** con toggle en sidebar, persistencia en localStorage
-- ✅ **Logos y Favicon adaptativos** — logos e íconos cambian dinámicamente según el tema seleccionado (claro/oscuro) para garantizar máxima legibilidad y contraste.
-
-### UX (8.5/10) ↑
+### UI (8.5/10)
 
 **Bien**
-- Flujo de subida progresivo claro (upload → processing → review → done)
-- Navegación limpia con sidebar y estados activos
-- ✅ **Paginación** en la bandeja con selector de filas por página
-- ✅ **Toast notifications** con auto-dismiss para feedback de acciones (guardar/eliminar)
-- ✅ **Confirmación al salir** de formularios sin guardar (useBlocker + beforeunload)
-- ✅ **Debounce** de 300ms en búsqueda de la bandeja
-- ✅ **Banner offline** que informa cuando no hay conexión
+- La app ya tiene identidad visual de marca con la nueva paleta y logos por tema.
+- Sidebar, login y superficies principales mantienen una direccion consistente.
+- El sistema visual sigue siendo bastante uniforme aun despues del rebrand.
 
 **Por mejorar**
-- (sin items pendientes)
+- El estilo general todavia depende mucho del mismo patron glassmorphism.
+- Hay pantallas densas como Preliquidacion y Bandeja que podrian ganar jerarquia visual.
 
-### Seguridad (7/10) ↑
-
-**Bien**
-- API key en `.env`, `.gitignore` configurado
-- CORS configurado en backend
-- ✅ **Autenticación JWT real** con `jose` (HS256, 24h de expiración)
-- ✅ **Token verificado en backend** (`authMiddleware`, `authEdgeMiddleware`)
-- ✅ **DNIs ya no están hardcodeados en frontend** — se validan contra Google Apps Script
-- Sesión almacenada en localStorage + Authorization header
-
-**Por mejorar**
-- Sin HTTPS forzado en local
-- Sin CSRF
-- Sin sanitización de inputs en API (más allá de regex básico)
-- Imágenes en base64 viajan sin validación de tamaño
-
-### Rendimiento (7/10) ↑
+### UX (8.5/10)
 
 **Bien**
-- IndexedDB (Dexie) para datos locales
-- `useMemo` para filtros en frontend
-- Chunking de build con Vite
-- ✅ **OCR en Web Worker** — tesseract.js y pdfjs-dist corren fuera del hilo principal
-- ✅ **Paginación** en bandeja — solo se renderizan 25 filas por vez
-- ✅ **Bundle principal reducido** — pdfjs-dist y tesseract.js van solo en el worker chunk (423KB menos en el bundle crítico)
+- Flujo de upload claro: subir, procesar, revisar, guardar.
+- La preliquidacion ahora es mas segura: excluye comprobantes sin clasificar y los hace visibles.
+- Backup fue simplificado para usuarios no tecnicos.
+- Paginacion, toasts, modo offline y confirmacion de salida siguen siendo puntos fuertes.
 
 **Por mejorar**
-- Chat carga todos los mensajes de IndexedDB sin límite
+- Algunos textos y decisiones importantes siguen dependiendo de `window.confirm`.
+- Hay conceptos fiscales complejos que todavia se apoyan en lectura manual del usuario final.
 
-### Escalabilidad (4/10)
+### Seguridad (7.5/10)
 
 **Bien**
-- Arquitectura modular permite extensión
-- Capas backend ya separadas para agregar DB real
+- Variables sensibles fuera del repo.
+- JWT valido en frontend y backend.
+- Rate limiting en login.
+- Validacion de shape y longitudes en requests de login/chat.
 
 **Por mejorar**
-- IndexedDB = un solo usuario, sin sincronización
-- Sin backend de base de datos (todo en el browser)
-- Sin multi-tenencia (todos comparten el mismo assistant de OpenAI)
-- Sin paginación server-side
-- OCR en cliente = limitado por dispositivo del usuario
+- No hay CSRF ni endurecimiento extra para sesion web.
+- Sigue faltando validacion mas estricta de tamano y tipo real de adjuntos mas alla del flujo de UI.
+- Los backups y datos siguen siendo locales y potencialmente sensibles si el equipo no esta controlado.
 
-### Mantenibilidad (8/10) ↑
+### Rendimiento (7.5/10)
 
 **Bien**
-- Tipos TypeScript claros y completos
-- Nombres consistentes en archivos y funciones
-- ✅ **Lógica duplicada eliminada**: openaiService compartido entre Express y Edge
-- ✅ **ASSISTANT_ID y constantes** centralizados en `config/`
-- ✅ **Error handling unificado** en Express y Edge
-- Estructura de proyecto predecible
+- OCR aislado del hilo principal.
+- Lazy loading de paginas.
+- Paginacion en bandeja.
+- El bundle principal sigue razonable para la app, aunque pesado.
 
 **Por mejorar**
-- Sin tests unitarios ni de integración
-- Sin Storybook / documentación de componentes
+- El build sigue avisando chunks grandes, especialmente en Preliquidacion.
+- Chat sigue cargando todo el historial local sin limite.
+- OCR en cliente depende del hardware del usuario.
 
-### Calidad del código (7.5/10) ↑
+### Escalabilidad (4.5/10)
 
 **Bien**
-- TypeScript en toda la codebase
-- Async/await consistente, patrones claros
-- Componentes con interfaces Props tipadas
-- ✅ `api/chat.ts` simplificado drásticamente (~30 líneas vs 166 originales)
-- ✅ Error handling centralizado (ya no repetido en cada handler)
-- ✅ `parseNumber` extraído elimina duplicación de `parseFloat(x.replace(',', '.'))`
+- La estructura modular deja una base decente para migrar a backend con persistencia real.
+- El proyecto ya tiene abstracciones que facilitarian mover datos fuera del navegador.
 
 **Por mejorar**
-- `console.warn` para errores esperados (deberían manejarse mejor)
-- Parámetro `_fileName` no usado en parserService
-- Sin lint config extendido (oxlint apenas configurado)
+- IndexedDB sigue siendo monousuario y local por navegador.
+- No hay sincronizacion entre dispositivos ni multi-tenant real.
+- La app sigue siendo fuerte como herramienta local/oficina chica, no como plataforma multiusuario.
 
-### Reutilización (7.5/10) ↑
+### Mantenibilidad (8.5/10)
 
 **Bien**
-- Componentes UI: `Button`, `Modal`, `Input`, `Select`, `Pagination`, `LoadingDots`, `EstadoBadge`
-- Utilidades: `formatCurrency`, `parseNumber`
-- Repositorios: `chatRepository`, `comprobanteRepository`
-- Servicios: `apiClient`, `chatService`, `authService`
-- ✅ **Pagination** componente reutilizable con navegación, ellipsis y selector de page size
+- La extraccion de `preliquidacionService` fue una mejora clara.
+- Tipos bien definidos en `src/types/comprobante.ts`.
+- Servicios especializados por dominio: parser, validador, OCR, backup, exportacion.
+- El parser ahora es mas conservador y menos riesgoso al clasificar compra/venta.
 
 **Por mejorar**
-- `DetailView` definido dentro de `BandejaPage` (no extraído a componente propio)
-- PreliquidacionPage tiene su propia versión inline del detalle (duplicación)
-- Sin custom hooks (`useComprobantes`, `useChat`)
-- `FilterBar` acoplado a la interfaz de BandejaPage
-- Lógica de validación de CUIT no extraída como util independiente
+- `ScoreActual.md` y `ARCHITECTURE.md` quedaron atrasados con frecuencia; falta disciplina de documentacion viva.
+- Siguen existiendo bloques grandes y algo repetidos en algunas paginas.
 
-### Accesibilidad (8/10) ↑
+### Calidad del codigo (8/10)
 
 **Bien**
-- Formularios con `<label>` correctos
-- HTML semántico básico
-- ✅ **`aria-label`** en todos los botones de íconos (modal close, acciones de tabla, detalle)
-- ✅ **Focus trap** en Modal con `role="dialog"` + `aria-modal`
-- ✅ **Roles ARIA** en elementos interactivos (`role="navigation"`, `role="main"`, `role="row"`)
-- ✅ **Estado con texto `sr-only`** para screen readers (badge de validaciones)
-- ✅ **Skip-to-content link** visible al hacer focus
-- ✅ **Soporte de teclado** en filas de tabla (`tabIndex={0}` + Enter para ver detalle)
-- ✅ **`aria-live`** en regiones dinámicas (loading `role="status"`, toast `role="status"`, offline `role="alert"`)
+- TypeScript fuerte en frontend.
+- Validaciones contables mas robustas.
+- Tests de parser cubren OCR, moneda extranjera, notas de credito y la nueva regla de clasificacion fiscal pendiente.
+- El codigo nuevo fue razonablemente bien encapsulado.
 
 **Por mejorar**
-- (sin items pendientes)
+- Persisten `console.error` y manejo algo basico de errores en varias paginas.
+- No hay suite de tests de UI ni integracion.
 
-### Preparación producción (5/10)
+### Reutilizacion (8/10)
 
 **Bien**
-- Configuración de build para Vercel (`vercel.json`)
-- `.env` + `.gitignore` correcto
+- UI basica reutilizable: `Button`, `Input`, `Select`, `Modal`, `Pagination`, `EstadoBadge`.
+- Servicios reutilizables de backup, OCR, parser, validacion y preliquidacion.
+- La exportacion Excel consume ahora un resultado de negocio ya calculado.
 
 **Por mejorar**
-- Sin CI/CD pipeline
-- Sin tests configurados en `package.json`
-- Sin Docker / docker-compose
-- Sin monitoreo de errores (Sentry, LogRocket, etc.)
-- Sin estrategia de backup para IndexedDB
-- Sin Service Worker / PWA
-- Sin analytics
+- `DetailView` de `BandejaPage` sigue inline.
+- Algunas superficies de estadisticas y tarjetas se repiten con variantes similares.
+
+### Accesibilidad (8/10)
+
+**Bien**
+- Labels, roles, `aria-live`, skip link y soporte de teclado siguen presentes.
+- El trabajo previo de modal y badges accesibles se mantiene.
+
+**Por mejorar**
+- No hay evidencia de tests de accesibilidad automatizados.
+- Con el rebrand convendria revisar contraste real en ambos temas con tooling dedicado.
+
+### Preparacion produccion (6/10)
+
+**Bien**
+- Build estable.
+- Deploy preparado para Vercel y Netlify.
+- Backup/export local ya existe, lo que reduce riesgo operativo para un uso simple.
+
+**Por mejorar**
+- No hay CI/CD.
+- No hay monitoreo, analytics ni captura centralizada de errores.
+- No hay persistencia remota de datos de negocio.
+- No hay pruebas automatizadas del flujo completo de deploy.
 
 ---
 
-## Próximos Pasos Recomendados
+## Hallazgos Relevantes
 
-1. **Alta** — Agregar tests (unitarios + integración)
-2. **Media** — Extraer DetailView a componente compartido
-3. **Media** — Agregar sanitización de inputs en API
-4. **Baja** — Implementar paginación server-side
-5. **Baja** — Agregar validación de tamaño en imágenes base64
-6. **Baja** — Mejorar focus visible indicators en todos los elementos interactivos
+### Lo mas valioso hoy
+
+- El MVP 2 esta bastante mejor parado que antes: OCR, validaciones, preliquidacion y exportacion ya forman un flujo util.
+- La clasificacion fiscal dejo de asumir compra/venta por letra de factura, lo cual era uno de los riesgos funcionales mas serios.
+- El producto se siente mas presentable para usuarios finales gracias al rebrand y a la simplificacion de la pantalla de backup.
+
+### Riesgos que siguen abiertos
+
+- Persistencia local: todo lo importante vive en el navegador.
+- Sincronizacion y multiusuario: siguen fuera del alcance actual.
+- Testing: hay tests de parser, pero falta cobertura de UI, rutas y flujos integrados.
+
+### Lectura ejecutiva
+
+- Hoy el producto se ve y se siente mas cercano a una app utilizable en un entorno real de trabajo chico.
+- El mayor salto pendiente no esta en UI sino en operacion: persistencia remota, observabilidad y pruebas de punta a punta.
+- Si la decision sigue siendo mantener un enfoque local-first, el siguiente foco deberia ser resiliencia, respaldo y soporte operativo. Si la idea es escalar, conviene empezar por una estrategia de datos compartidos.
+
+---
+
+## Proximos Pasos Recomendados
+
+1. **Alta** - Agregar tests de integracion para login, chat y backup.
+2. **Alta** - Definir si el producto seguira siendo local-first o si migrara a persistencia remota.
+3. **Media** - Reducir tamano del chunk de Preliquidacion y revisar carga inicial de Chat.
+4. **Media** - Extraer vistas inline grandes de `BandejaPage` y `PreliquidacionPage`.
+5. **Media** - Mantener `README.md`, `ARCHITECTURE.md` y `ScoreActual.md` sincronizados en cada cambio estructural.
+6. **Baja** - Revisar contraste final y pulir consistencia visual del nuevo sistema de marca.

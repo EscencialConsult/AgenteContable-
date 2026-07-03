@@ -1,10 +1,10 @@
-export const LOGO_URL_DARK = '/logoEscencial.png'
-export const LOGO_URL_LIGHT = '/logoEscencial-light.png'
+export const LOGO_URL_DARK = '/logoOne-dark.png'
+export const LOGO_URL_LIGHT = '/logoOne-light.png'
 export const LOGO_URL = LOGO_URL_DARK
 
-export const APP_TITLE = 'Escencial — Agente Contable'
+export const APP_TITLE = 'ONE - Agente Contable'
 
 export const FALLBACK_MESSAGES = {
-  NO_RESPONSE: '⏳ Todavía no hay respuesta del bot.',
+  NO_RESPONSE: 'Todavia no hay respuesta del bot.',
   ANALYZE_DOCUMENT: 'Analiza este comprobante',
 }

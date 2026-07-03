@@ -1,6 +1,6 @@
 import type { Categoria, Comprobante } from '../types/comprobante'
 import { ALICUOTAS, CONDITION_MAP } from '../config'
-import { clasificarFiscalmente, getSignoFiscalPorCategoria } from './fiscalClassifierService'
+import { clasificarFiscalmente, getSignoFiscalPorComprobante } from './fiscalClassifierService'
 
 function normalizeText(value: string): string {
   return value
@@ -334,8 +334,7 @@ function inferCategoria(tipo: string, normalized: string): Categoria {
   if (normalizedTipo.includes('NOTA DE DEBITO')) return 'nota_debito'
   if (/COMPROBANTE DE PAGO|PAGO FACIL|MERCADO PAGO/.test(normalized)) return 'gasto_no_computable'
   if (normalizedTipo.includes('TICKET') || normalizedTipo.includes('RECIBO')) return 'gasto_deducible'
-  if (normalizedTipo.includes('FACTURA A') || normalizedTipo.includes('FACTURA B')) return 'venta'
-  if (normalizedTipo.includes('FACTURA C')) return 'compra'
+  if (normalizedTipo.includes('FACTURA')) return 'sin_clasificar'
 
   return 'sin_clasificar'
 }
@@ -572,7 +571,7 @@ export function parseComprobante(text: string, _fileName?: string): Partial<Comp
   return {
     ...base,
     categoria: clasificacionFiscal.categoria,
-    signoFiscal: getSignoFiscalPorCategoria(clasificacionFiscal.categoria),
+    signoFiscal: getSignoFiscalPorComprobante(base),
     clasificacionFiscal,
   }
 }

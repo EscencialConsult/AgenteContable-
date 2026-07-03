@@ -37,11 +37,11 @@ export default function BackupPage() {
     try {
       const backup = await buildFullBackup()
       downloadBackup(backup)
-      addToast('success', 'Backup completo descargado')
+      addToast('success', 'Copia completa descargada')
       await refreshStorage()
     } catch (err) {
       console.error('Backup export error')
-      addToast('error', err instanceof Error ? err.message : 'No se pudo exportar el backup')
+      addToast('error', err instanceof Error ? err.message : 'No se pudo descargar la copia')
     } finally {
       setLoading('')
     }
@@ -49,7 +49,7 @@ export default function BackupPage() {
 
   const handlePeriodoBackup = async () => {
     if (!periodoId) {
-      addToast('error', 'Selecciona un periodo para exportar')
+      addToast('error', 'Selecciona un periodo para descargar')
       return
     }
 
@@ -57,11 +57,11 @@ export default function BackupPage() {
     try {
       const backup = await buildPeriodoBackup(periodoId)
       downloadBackup(backup)
-      addToast('success', 'Periodo exportado con adjuntos')
+      addToast('success', 'Periodo descargado')
       await refreshStorage()
     } catch (err) {
       console.error('Period backup export error')
-      addToast('error', err instanceof Error ? err.message : 'No se pudo exportar el periodo')
+      addToast('error', err instanceof Error ? err.message : 'No se pudo descargar el periodo')
     } finally {
       setLoading('')
     }
@@ -76,10 +76,10 @@ export default function BackupPage() {
     try {
       const parsed = await parseBackupFile(file)
       setPendingBackup(parsed)
-      addToast('success', 'Backup listo para restaurar')
+      addToast('success', 'Archivo listo para recuperar')
     } catch (err) {
       console.error('Backup import parse error')
-      addToast('error', err instanceof Error ? err.message : 'Archivo de backup invalido')
+      addToast('error', err instanceof Error ? err.message : 'El archivo no es valido')
     } finally {
       setLoading('')
     }
@@ -89,8 +89,8 @@ export default function BackupPage() {
     if (!pendingBackup) return
 
     const confirmMessage = restoreMode === 'replace'
-      ? 'Esto reemplaza la base local actual por el backup seleccionado. Es recomendable exportar un backup completo antes de continuar. ¿Restaurar de todos modos?'
-      : 'Esto agrega o actualiza registros del backup sobre la base local actual. ¿Continuar?'
+      ? 'Esto va a reemplazar la informacion guardada en este equipo por la del archivo seleccionado. Si quieres, antes puedes descargar una copia actual. Continuar?'
+      : 'Esto va a sumar o actualizar informacion del archivo sin borrar lo que ya tienes guardado. Continuar?'
 
     if (!window.confirm(confirmMessage)) return
 
@@ -98,11 +98,11 @@ export default function BackupPage() {
     try {
       await restoreBackup(pendingBackup, restoreMode)
       setPendingBackup(null)
-      addToast('success', 'Backup restaurado correctamente')
+      addToast('success', 'Copia recuperada correctamente')
       await refreshStorage()
     } catch (err) {
       console.error('Backup restore error')
-      addToast('error', err instanceof Error ? err.message : 'No se pudo restaurar el backup')
+      addToast('error', err instanceof Error ? err.message : 'No se pudo recuperar la copia')
     } finally {
       setLoading('')
     }
@@ -111,41 +111,41 @@ export default function BackupPage() {
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       <div className="bg-glass border-b border-glass-border px-8 py-5">
-        <h2 className="text-text-primary text-lg font-semibold">Seguridad y Backup</h2>
+        <h2 className="text-text-primary text-lg font-semibold">Seguridad y copias</h2>
         <p className="text-text-secondary text-sm mt-1">
-          Respaldo local, restauracion y controles de privacidad para comprobantes reales.
+          Guarda una copia de tu informacion y recuperala cuando la necesites.
         </p>
       </div>
 
       <div className="p-8 space-y-6 max-w-6xl">
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <InfoTile label="Uso local" value={formatBytes(storage.usage)} />
-          <InfoTile label="Cuota navegador" value={formatBytes(storage.quota)} />
-          <InfoTile label="Ocupacion estimada" value={storage.percent !== undefined ? `${storage.percent}%` : 'No disponible'} />
+          <InfoTile label="Espacio usado" value={formatBytes(storage.usage)} />
+          <InfoTile label="Espacio disponible" value={formatBytes(storage.quota)} />
+          <InfoTile label="Nivel de ocupacion" value={storage.percent !== undefined ? `${storage.percent}%` : 'No disponible'} />
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
             <div className="flex items-center gap-3 mb-4">
               <DatabaseBackup size={20} className="text-teal" />
-              <h3 className="text-text-primary font-semibold">Backup completo</h3>
+              <h3 className="text-text-primary font-semibold">Guardar copia completa</h3>
             </div>
             <p className="text-text-secondary text-sm mb-4">
-              Exporta comprobantes, periodos, lotes, mensajes y adjuntos guardados en IndexedDB.
+              Descarga una copia con toda la informacion cargada en esta app.
             </p>
             <Button onClick={handleFullBackup} disabled={loading === 'full'}>
               <Download size={16} />
-              Descargar backup completo
+              Descargar copia completa
             </Button>
           </div>
 
           <div className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
             <div className="flex items-center gap-3 mb-4">
               <FileArchive size={20} className="text-teal" />
-              <h3 className="text-text-primary font-semibold">Exportar periodo</h3>
+              <h3 className="text-text-primary font-semibold">Guardar un periodo</h3>
             </div>
             <p className="text-text-secondary text-sm mb-4">
-              Descarga solo los comprobantes del periodo seleccionado, incluyendo PDFs/imagenes adjuntas.
+              Descarga solo la informacion del periodo que selecciones.
             </p>
             <div className="mb-4">
               <PeriodoSelector periodoId={periodoId} onPeriodoChange={setPeriodoId} allowEmpty compact />
@@ -160,12 +160,12 @@ export default function BackupPage() {
         <section className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
           <div className="flex items-center gap-3 mb-4">
             <Upload size={20} className="text-teal" />
-            <h3 className="text-text-primary font-semibold">Restaurar backup</h3>
+            <h3 className="text-text-primary font-semibold">Recuperar una copia</h3>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
             <div>
               <p className="text-text-secondary text-sm mb-4">
-                Carga un JSON exportado desde esta aplicacion. El modo fusionar conserva datos actuales y actualiza coincidencias por id.
+                Selecciona una copia descargada desde esta app para volver a cargarla.
               </p>
               <input
                 ref={fileInputRef}
@@ -176,32 +176,32 @@ export default function BackupPage() {
               />
               <div className="flex flex-wrap gap-3">
                 <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={loading === 'parse'}>
-                  Seleccionar backup
+                  Seleccionar archivo
                 </Button>
                 {pendingBackup && (
                   <Button onClick={handleRestore} disabled={loading === 'restore'}>
-                    Restaurar
+                    Recuperar
                   </Button>
                 )}
               </div>
             </div>
 
             <div className="space-y-3">
-              <label className="block text-text-muted text-xs uppercase tracking-wide">Modo</label>
+              <label className="block text-text-muted text-xs uppercase tracking-wide">Como recuperar</label>
               <select
                 value={restoreMode}
                 onChange={(event) => setRestoreMode(event.target.value as 'merge' | 'replace')}
                 className="w-full px-3 py-2 bg-navy-900 border border-glass-border rounded-lg text-text-primary text-sm outline-none"
               >
-                <option value="merge">Fusionar</option>
-                <option value="replace">Reemplazar base local</option>
+                <option value="merge">Sumar sin borrar</option>
+                <option value="replace">Reemplazar lo actual</option>
               </select>
               {pendingBackup && (
                 <div className="text-xs text-text-secondary border border-glass-border rounded-lg p-3 bg-navy-900">
-                  <p className="text-text-primary font-semibold mb-1">Backup seleccionado</p>
-                  <p>Exportado: {new Date(pendingBackup.manifest.exportedAt).toLocaleString('es-AR')}</p>
+                  <p className="text-text-primary font-semibold mb-1">Archivo seleccionado</p>
+                  <p>Fecha: {new Date(pendingBackup.manifest.exportedAt).toLocaleString('es-AR')}</p>
                   <p>Comprobantes: {pendingBackup.manifest.counts.comprobantes}</p>
-                  <p>Adjuntos: {pendingBackup.manifest.includesAdjuntos ? 'Si' : 'No'}</p>
+                  <p>Incluye archivos: {pendingBackup.manifest.includesAdjuntos ? 'Si' : 'No'}</p>
                 </div>
               )}
             </div>
@@ -211,16 +211,14 @@ export default function BackupPage() {
         <section className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
           <div className="flex items-center gap-3 mb-4">
             <Shield size={20} className="text-teal" />
-            <h3 className="text-text-primary font-semibold">Privacidad y datos sensibles</h3>
+            <h3 className="text-text-primary font-semibold">Antes de compartir una copia</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
-              ['Base local', 'Comprobantes, importes, CUITs y adjuntos se guardan en IndexedDB del navegador.'],
-              ['Backups', 'Los JSON exportados incluyen adjuntos en Base64 si existen; tratarlos como documentacion sensible.'],
-              ['Login', 'El token y usuario quedan en localStorage para mantener sesion local.'],
-              ['APIs externas', 'El OCR y la preliquidacion corren en el navegador. El chat puede enviar mensajes al backend y de ahi a OpenAI si se usa esa funcion.'],
-              ['Logs', 'La app evita imprimir comprobantes completos o adjuntos en consola; solo registra errores genericos.'],
-              ['Multiusuario', 'IndexedDB es local al navegador/perfil. Para multiusuario real falta separar datos por cuenta en backend o por base local.'],
+              ['Tu informacion queda en este equipo', 'Lo que cargues en la app se guarda en este navegador, en esta computadora.'],
+              ['La copia puede incluir archivos adjuntos', 'Si tus comprobantes tienen imagenes o PDFs, la copia tambien puede llevarlos.'],
+              ['Trata la copia como informacion privada', 'Si la vas a enviar por mail o chat, hazlo solo con personas de confianza.'],
+              ['Cada usuario trabaja por separado', 'Lo que ve una persona en su navegador no aparece automaticamente en otro equipo.'],
             ].map(([title, body]) => (
               <div key={title} className="p-4 rounded-lg bg-navy-900 border border-glass-border">
                 <p className="text-text-primary text-sm font-semibold mb-1">{title}</p>
@@ -231,7 +229,7 @@ export default function BackupPage() {
           <div className="mt-4 flex gap-2 text-yellow-400 text-xs bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <p>
-              Si este sistema se usa en produccion con varios usuarios, el siguiente paso es migrar a almacenamiento por usuario en servidor, cifrado/backup administrado y politicas de retencion.
+              Si varias personas van a usar esta app, conviene acordar un habito simple para descargar y guardar copias con frecuencia.
             </p>
           </div>
         </section>

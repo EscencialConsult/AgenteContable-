@@ -36,7 +36,7 @@ export default function FilterBar({ filters, onChange }: Props) {
   }
 
   const selectClass =
-    'px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 focus:border-teal focus:shadow-[0_0_0_3px_rgba(106,213,203,0.15)] appearance-none cursor-pointer min-w-[160px]'
+    'px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 focus:border-teal focus:shadow-ring-teal-subtle appearance-none cursor-pointer min-w-[160px]'
 
   return (
     <div className="flex flex-wrap gap-3 items-center">
@@ -50,7 +50,7 @@ export default function FilterBar({ filters, onChange }: Props) {
           placeholder="Buscar por CUIT, razón social..."
           value={localSearch}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 focus:border-teal focus:shadow-[0_0_0_3px_rgba(106,213,203,0.15)] placeholder:text-text-muted"
+          className="w-full pl-10 pr-4 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 focus:border-teal focus:shadow-ring-teal-subtle placeholder:text-text-muted"
         />
       </div>
 
