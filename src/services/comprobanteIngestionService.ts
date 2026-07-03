@@ -85,6 +85,7 @@ export async function ingestComprobanteFile(
   try {
     const validado = await prepararComprobanteValidado({
       ...parsed,
+      ocrRawText: extractedText,
       fileName: file.name,
       archivoBase64: await readFileAsDataURL(file),
       periodoId,

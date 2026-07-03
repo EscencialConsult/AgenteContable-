@@ -49,6 +49,42 @@ assert.ok(
   'Debe advertir total inconsistente',
 )
 
+const totalConDecimalCorridaOCR = validarReglasContables({
+  tipo: 'Factura A',
+  cuit: '30711111118',
+  fecha: '15/06/2026',
+  puntoVenta: 4,
+  numero: 1234,
+  cae: '76234567890123',
+  categoria: 'compra',
+  netoGravado: 10000,
+  iva: 2100,
+  total: 121000,
+  ivaDetalle: [{ alicuota: '21%', neto: 10000, iva: 2100 }],
+})
+assert.ok(
+  totalConDecimalCorridaOCR.some((v) => v.tipo === 'total_posible_error_ocr'),
+  'Debe advertir posible corrimiento decimal OCR en total',
+)
+
+const totalSinIva = validarReglasContables({
+  tipo: 'Factura A',
+  cuit: '30711111118',
+  fecha: '15/06/2026',
+  puntoVenta: 4,
+  numero: 1234,
+  cae: '76234567890123',
+  categoria: 'compra',
+  netoGravado: 10000,
+  iva: 2100,
+  total: 10000,
+  ivaDetalle: [{ alicuota: '21%', neto: 10000, iva: 2100 }],
+})
+assert.ok(
+  totalSinIva.some((v) => v.tipo === 'total_no_incluye_iva'),
+  'Debe advertir total que coincide con neto y no incluye IVA',
+)
+
 const facturaSinCae = validarReglasContables({
   tipo: 'Factura A',
   categoria: 'compra',

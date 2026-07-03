@@ -2,8 +2,10 @@ import type { Comprobante, NivelValidacion, Validacion } from '../types/comproba
 import { db } from '../db/database'
 import { VALIDACION } from '../config'
 import { clasificarFiscalmente, getSignoFiscalPorComprobante } from './fiscalClassifierService'
+import { buildOCRFieldWarnings } from './parserService'
 
 const IMPORTE_TOLERANCIA = 1
+const FACTORES_OCR_IMPORTE = [10, 100, 1000, 0.1, 0.01]
 
 function validarCUIT(cuit: string): boolean {
   const cleaned = cuit.replace(/[-\s]/g, '')
@@ -163,6 +165,111 @@ function getTotalTributos(comprobante: Partial<Comprobante>): number {
   return (comprobante.percepciones || 0) + (comprobante.retenciones || 0)
 }
 
+function isCloseCurrency(actual: number, expected: number, tolerance = IMPORTE_TOLERANCIA): boolean {
+  return Math.abs(actual - expected) <= tolerance
+}
+
+function isProbableScaleError(actual: number, expected: number): boolean {
+  if (!actual || !expected) return false
+  const tolerance = Math.max(IMPORTE_TOLERANCIA, Math.abs(expected) * 0.003)
+  return FACTORES_OCR_IMPORTE.some((factor) =>
+    Math.abs((actual / factor) - expected) <= tolerance ||
+    Math.abs((actual * factor) - expected) <= tolerance,
+  )
+}
+
+function addValidationOnce(validaciones: Validacion[], validacion: Validacion) {
+  if (validaciones.some((item) => item.tipo === validacion.tipo && item.mensaje === validacion.mensaje)) return
+  validaciones.push(validacion)
+}
+
+function validarReconciliacionContable(
+  validaciones: Validacion[],
+  normalized: Partial<Comprobante>,
+  lineasIVA: NonNullable<Comprobante['ivaDetalle']>,
+) {
+  const total = normalized.total || 0
+  const neto = normalized.netoGravado || 0
+  const iva = normalized.iva || 0
+  const noGravado = normalized.noGravado || 0
+  const exento = normalized.exento || 0
+  const tributos = getTotalTributos(normalized)
+  const componentes = neto + iva + noGravado + exento + tributos
+  const totalEsperado = roundCurrency(componentes)
+
+  if (total > 0 && componentes > 0 && !isCloseCurrency(total, totalEsperado)) {
+    addValidationOnce(validaciones, {
+      tipo: 'total_inconsistente',
+      mensaje: `Total informado ($${total.toFixed(2)}) no coincide con neto + IVA + tributos ($${totalEsperado.toFixed(2)})`,
+      nivel: 'warning',
+    })
+
+    if (isProbableScaleError(total, totalEsperado)) {
+      addValidationOnce(validaciones, {
+        tipo: 'total_posible_error_ocr',
+        mensaje: `El total leido ($${total.toFixed(2)}) parece tener un corrimiento de decimales respecto del total esperado ($${totalEsperado.toFixed(2)})`,
+        nivel: 'warning',
+      })
+    }
+  }
+
+  if (total > 0 && neto > 0 && iva > 0 && isCloseCurrency(total, neto)) {
+    addValidationOnce(validaciones, {
+      tipo: 'total_no_incluye_iva',
+      mensaje: 'El total leido coincide con el neto, podria faltar sumar IVA al total',
+      nivel: 'warning',
+    })
+  }
+
+  if (total > 0 && iva > 0 && total < iva - IMPORTE_TOLERANCIA) {
+    addValidationOnce(validaciones, {
+      tipo: 'total_menor_iva',
+      mensaje: 'El total leido es menor al IVA, revisar lectura OCR de importes',
+      nivel: 'warning',
+    })
+  }
+
+  const ivaDetalleTotal = roundCurrency(lineasIVA.reduce((sum, linea) => sum + (linea.iva || 0), 0))
+  if (!isCloseCurrency(ivaDetalleTotal, iva)) {
+    addValidationOnce(validaciones, {
+      tipo: 'iva_detalle_total',
+      mensaje: `Detalle de IVA ($${ivaDetalleTotal.toFixed(2)}) no coincide con IVA informado ($${iva.toFixed(2)})`,
+      nivel: 'warning',
+    })
+
+    if (isProbableScaleError(iva, ivaDetalleTotal)) {
+      addValidationOnce(validaciones, {
+        tipo: 'iva_posible_error_ocr',
+        mensaje: 'El IVA leido parece tener un corrimiento de decimales frente al detalle de alicuotas',
+        nivel: 'warning',
+      })
+    }
+  }
+
+  for (const linea of lineasIVA) {
+    const tasa = parseAlicuota(linea.alicuota)
+    if (!tasa || !(linea.neto || 0)) continue
+
+    const esperado = roundCurrency((linea.neto || 0) * tasa)
+    const informado = linea.iva || 0
+    if (!isCloseCurrency(esperado, informado)) {
+      addValidationOnce(validaciones, {
+        tipo: 'iva_alicuota_inconsistente',
+        mensaje: `IVA ${linea.alicuota} esperado $${esperado.toFixed(2)}, informado $${informado.toFixed(2)}`,
+        nivel: 'warning',
+      })
+
+      if (isProbableScaleError(informado, esperado)) {
+        addValidationOnce(validaciones, {
+          tipo: 'iva_alicuota_posible_error_ocr',
+          mensaje: `IVA ${linea.alicuota} parece tener decimales corridos por OCR`,
+          nivel: 'warning',
+        })
+      }
+    }
+  }
+}
+
 export async function findComprobanteDuplicado(
   comprobante: Partial<Comprobante>,
 ): Promise<Comprobante | undefined> {
@@ -192,9 +299,6 @@ export function validarReglasContables(
   const total = normalized.total || 0
   const neto = normalized.netoGravado || 0
   const iva = normalized.iva || 0
-  const noGravado = normalized.noGravado || 0
-  const exento = normalized.exento || 0
-  const tributos = getTotalTributos(normalized)
   const tipo = (normalized.tipo || '').toUpperCase()
 
   if (clasificacion.requierePuntoVentaNumero && (!normalized.puntoVenta || !normalized.numero)) {
@@ -229,44 +333,11 @@ export function validarReglasContables(
     })
   }
 
-  if (total > 0) {
-    const totalEsperado = roundCurrency(neto + iva + noGravado + exento + tributos)
-    const componentes = neto + iva + noGravado + exento + tributos
-    if (componentes > 0 && Math.abs(totalEsperado - total) > IMPORTE_TOLERANCIA) {
-      validaciones.push({
-        tipo: 'total_inconsistente',
-        mensaje: `Total informado ($${total.toFixed(2)}) no coincide con neto + IVA + tributos ($${totalEsperado.toFixed(2)})`,
-        nivel: 'warning',
-      })
-    }
-  }
-
   const lineasIVA = normalized.ivaDetalle?.length
     ? normalized.ivaDetalle
     : [{ alicuota: iva ? '21%' : '0%', neto, iva }]
 
-  const ivaDetalleTotal = roundCurrency(lineasIVA.reduce((sum, linea) => sum + (linea.iva || 0), 0))
-  if (Math.abs(ivaDetalleTotal - iva) > IMPORTE_TOLERANCIA) {
-    validaciones.push({
-      tipo: 'iva_detalle_total',
-      mensaje: `Detalle de IVA ($${ivaDetalleTotal.toFixed(2)}) no coincide con IVA informado ($${iva.toFixed(2)})`,
-      nivel: 'warning',
-    })
-  }
-
-  for (const linea of lineasIVA) {
-    const tasa = parseAlicuota(linea.alicuota)
-    if (!tasa || !(linea.neto || 0)) continue
-
-    const esperado = roundCurrency((linea.neto || 0) * tasa)
-    if (Math.abs(esperado - (linea.iva || 0)) > IMPORTE_TOLERANCIA) {
-      validaciones.push({
-        tipo: 'iva_alicuota_inconsistente',
-        mensaje: `IVA ${linea.alicuota} esperado $${esperado.toFixed(2)}, informado $${(linea.iva || 0).toFixed(2)}`,
-        nivel: 'warning',
-      })
-    }
-  }
+  validarReconciliacionContable(validaciones, normalized, lineasIVA)
 
   if (tipo.includes('FACTURA A') && iva === 0) {
     validaciones.push({
@@ -439,6 +510,7 @@ export async function prepararComprobanteValidado(
 
   return {
     ...comprobanteClasificado,
+    fieldWarnings: buildOCRFieldWarnings(comprobanteClasificado),
     validaciones,
     nivelValidacion,
     estadoRevision,

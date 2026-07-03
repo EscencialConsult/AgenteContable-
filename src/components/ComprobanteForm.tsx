@@ -107,6 +107,36 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
     categoria: fiscal.categoria,
     clasificacionFiscal: fiscal,
   }), [draft, fiscal])
+  const fieldWarnings = useMemo(() =>
+    (draft.fieldWarnings || []).filter((warning) => {
+      switch (warning.field) {
+        case 'tipo':
+          return !form.tipo || ['FACTURA', 'DESCONOCIDO'].includes(form.tipo.trim().toUpperCase())
+        case 'razonSocial':
+          return !form.razonSocial.trim()
+        case 'cuit':
+          return form.cuit.replace(/\D/g, '').length !== 11
+        case 'fecha':
+          return !form.fecha.trim()
+        case 'total':
+          return parseNumber(form.total) <= 0
+        case 'puntoVenta':
+          return (parseInt(form.puntoVenta) || 0) <= 0
+        case 'numero':
+          return (parseInt(form.numero) || 0) <= 0
+        case 'cae': {
+          const digits = form.cae.replace(/\D/g, '')
+          return digits.length === 0 || digits.length !== 14
+        }
+        case 'fechaVencimiento':
+          return !form.fechaVencimiento.trim()
+        case 'categoria':
+          return form.categoria === 'sin_clasificar'
+        default:
+          return true
+      }
+    }),
+  [draft.fieldWarnings, form])
   const faltantes = useMemo(() => {
     const fields = [
       ['Tipo', form.tipo],
@@ -217,6 +247,11 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
                 </div>
               ) : (
                 <>
+                  {fieldWarnings.length > 0 && (
+                    <div className="px-3 py-2 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 text-xs">
+                      Campos a revisar: {fieldWarnings.map((warning) => warning.label).join(', ')}
+                    </div>
+                  )}
                   {faltantes.length > 0 && (
                     <div className="px-3 py-2 rounded-md bg-error-bg border border-error/30 text-error text-xs">
                       Faltan: {faltantes.join(', ')}
@@ -240,6 +275,22 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
           </div>
         </div>
       </div>
+
+      {fieldWarnings.length > 0 && (
+        <div className="border border-yellow-500/30 rounded-lg bg-yellow-500/10 p-4">
+          <p className="text-yellow-400 text-xs font-medium uppercase tracking-wide mb-2">
+            Campos inferidos con baja confianza
+          </p>
+          <div className="space-y-2">
+            {fieldWarnings.map((warning) => (
+              <div key={`${warning.field}-${warning.message}`} className="text-sm">
+                <p className="text-text-primary font-medium">{warning.label}</p>
+                <p className="text-text-secondary text-xs">{warning.message}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2 sm:col-span-1">

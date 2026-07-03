@@ -42,9 +42,17 @@ export interface Comprobante {
   origen?: OrigenComprobante
   confidence?: number
   observaciones: string
+  ocrRawText?: string
+  fieldWarnings?: OCRFieldWarning[]
   archivoBase64?: string
   fileName?: string
   createdAt: string
+}
+
+export interface OCRFieldWarning {
+  field: string
+  label: string
+  message: string
 }
 
 export type Categoria =
@@ -162,4 +170,13 @@ export interface ChatMessage {
   imageBase64?: string
   fileName?: string
   createdAt?: string
+}
+
+export interface BatchItem {
+  id: string // A unique id for UI tracking
+  file: File
+  fileName: string
+  status: 'pendiente' | 'procesado' | 'duplicado' | 'error' | 'sin_texto'
+  message?: string
+  comprobante?: Partial<Comprobante>
 }

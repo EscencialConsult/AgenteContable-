@@ -539,10 +539,37 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
         </div>
       )}
 
+      {c.fieldWarnings && c.fieldWarnings.length > 0 && (
+        <div>
+          <p className="text-text-muted text-[11px] uppercase tracking-wide mb-2">Campos a revisar</p>
+          <div className="space-y-1.5">
+            {c.fieldWarnings.map((warning, index) => (
+              <div
+                key={`${warning.field}-${index}`}
+                className="px-3 py-2 rounded-lg text-xs border bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+              >
+                <span className="font-semibold">{warning.label}:</span> {warning.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {c.observaciones && (
         <div>
           <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Observaciones</p>
           <p className="text-text-secondary text-sm">{c.observaciones}</p>
+        </div>
+      )}
+
+      {c.ocrRawText && (
+        <div>
+          <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">OCR crudo</p>
+          <div className="border border-glass-border rounded-lg bg-navy-900/70 p-3">
+            <pre className="text-text-secondary text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto custom-scrollbar">
+              {c.ocrRawText}
+            </pre>
+          </div>
         </div>
       )}
 

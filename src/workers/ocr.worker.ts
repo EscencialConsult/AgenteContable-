@@ -36,6 +36,7 @@ interface CropRatio {
   y: number
   width: number
   height: number
+  scaleBoost?: number
 }
 
 interface OCRVariant {
@@ -87,7 +88,8 @@ async function preprocessImage(
   const sourceWidth = Math.round((crop?.width || 1) * bitmap.width)
   const sourceHeight = Math.round((crop?.height || 1) * bitmap.height)
   const longestSide = Math.max(sourceWidth, sourceHeight)
-  const scale = longestSide < 1200 ? 3.2 : longestSide < 1900 ? 2.4 : 1.7
+  const baseScale = longestSide < 900 ? 3.8 : longestSide < 1200 ? 3.2 : longestSide < 1900 ? 2.4 : 1.7
+  const scale = Math.min(5, baseScale * (crop?.scaleBoost || 1))
   const width = Math.round(sourceWidth * scale)
   const height = Math.round(sourceHeight * scale)
   const canvas = new OffscreenCanvas(width, height)
@@ -150,19 +152,47 @@ async function buildOCRVariants(blob: Blob): Promise<OCRVariant[]> {
   const fullGray = await preprocessImage(blob, 'gray')
   const fullBinary = await preprocessImage(blob, 'binary')
   const fullContrast = await preprocessImage(blob, 'contrast')
-  const header = await preprocessImage(blob, 'gray', { x: 0, y: 0, width: 1, height: 0.42 })
+
+  const headerFull = await preprocessImage(blob, 'gray', { x: 0, y: 0, width: 1, height: 0.30 })
+  const headerLeft = await preprocessImage(blob, 'contrast', { x: 0, y: 0, width: 0.46, height: 0.28, scaleBoost: 1.15 })
+  const headerCenter = await preprocessImage(blob, 'contrast', { x: 0.38, y: 0, width: 0.24, height: 0.18, scaleBoost: 1.25 })
+  const headerRight = await preprocessImage(blob, 'contrast', { x: 0.52, y: 0, width: 0.48, height: 0.30, scaleBoost: 1.15 })
+
+  const receiver = await preprocessImage(blob, 'gray', { x: 0, y: 0.18, width: 1, height: 0.18, scaleBoost: 1.1 })
   const body = await preprocessImage(blob, 'gray', { x: 0, y: 0.28, width: 1, height: 0.42 })
-  const totals = await preprocessImage(blob, 'gray', { x: 0.38, y: 0.62, width: 0.62, height: 0.34 })
-  const footer = await preprocessImage(blob, 'gray', { x: 0, y: 0.78, width: 1, height: 0.22 })
+
+  const totalsFull = await preprocessImage(blob, 'gray', { x: 0, y: 0.62, width: 1, height: 0.22, scaleBoost: 1.1 })
+  const totalsRightGray = await preprocessImage(blob, 'gray', { x: 0.50, y: 0.60, width: 0.50, height: 0.26, scaleBoost: 1.25 })
+  const totalsRightBinary = await preprocessImage(blob, 'binary', { x: 0.50, y: 0.60, width: 0.50, height: 0.26, scaleBoost: 1.25 })
+
+  const footerFullGray = await preprocessImage(blob, 'gray', { x: 0, y: 0.80, width: 1, height: 0.20, scaleBoost: 1.15 })
+  const footerFullBinary = await preprocessImage(blob, 'binary', { x: 0, y: 0.80, width: 1, height: 0.20, scaleBoost: 1.15 })
+  const footerLeft = await preprocessImage(blob, 'contrast', { x: 0, y: 0.82, width: 0.48, height: 0.18, scaleBoost: 1.2 })
+  const footerCenter = await preprocessImage(blob, 'gray', { x: 0.30, y: 0.82, width: 0.40, height: 0.18, scaleBoost: 1.25 })
+  const footerRightGray = await preprocessImage(blob, 'gray', { x: 0.58, y: 0.80, width: 0.42, height: 0.18, scaleBoost: 1.35 })
+  const footerRightBinary = await preprocessImage(blob, 'binary', { x: 0.58, y: 0.80, width: 0.42, height: 0.18, scaleBoost: 1.35 })
+  const footerRightTight = await preprocessImage(blob, 'contrast', { x: 0.62, y: 0.84, width: 0.38, height: 0.12, scaleBoost: 1.6 })
 
   return [
     { label: 'full-gray-auto', blob: fullGray, psm: Tesseract.PSM.AUTO },
     { label: 'full-binary-sparse', blob: fullBinary, psm: Tesseract.PSM.SPARSE_TEXT },
     { label: 'full-contrast-block', blob: fullContrast, psm: Tesseract.PSM.SINGLE_BLOCK },
-    { label: 'header-sparse', blob: header, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'header-full-sparse', blob: headerFull, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'header-left-block', blob: headerLeft, psm: Tesseract.PSM.SINGLE_BLOCK },
+    { label: 'header-center-sparse', blob: headerCenter, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'header-right-sparse', blob: headerRight, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'receiver-sparse', blob: receiver, psm: Tesseract.PSM.SPARSE_TEXT },
     { label: 'body-sparse', blob: body, psm: Tesseract.PSM.SPARSE_TEXT },
-    { label: 'totals-sparse', blob: totals, psm: Tesseract.PSM.SPARSE_TEXT },
-    { label: 'footer-sparse', blob: footer, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'totals-full-sparse', blob: totalsFull, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'totals-right-gray', blob: totalsRightGray, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'totals-right-binary', blob: totalsRightBinary, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-full-gray', blob: footerFullGray, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-full-binary', blob: footerFullBinary, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-left-contrast', blob: footerLeft, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-center-gray', blob: footerCenter, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-right-gray', blob: footerRightGray, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-right-binary', blob: footerRightBinary, psm: Tesseract.PSM.SPARSE_TEXT },
+    { label: 'footer-right-tight', blob: footerRightTight, psm: Tesseract.PSM.SPARSE_TEXT },
   ]
 }
 

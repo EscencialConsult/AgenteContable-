@@ -230,6 +230,139 @@ Fecha de Vto. de CAE: 21/09/2023
     },
   },
   {
+    name: 'factura-a-ocr-pie-cae-10-digitos',
+    text: `
+Empresa de Ejemplo
+A
+COD. 01
+FACTURA
+0000-00000001
+Fecha de Emision: 01/01/2025
+CUIT: 20-12345678-3
+Razon Social: Empresa de Ejemplo 2
+Cond. IVA: Responsable Inscripto
+Importe Neto Gravado: $ 9.000,00
+IVA 21%: $ 1.890,00
+Importe Total: $ 10.890,00
+ARCA
+Comprobante Autorizado
+CAE N°: 1234567890
+Fecha de Vto. de CAE: 11/01/2025
+`,
+    expected: {
+      tipo: 'Factura A',
+      cuit: '20123456783',
+      fecha: '01/01/2025',
+      condicionIVA: 'Responsable Inscripto',
+      netoGravado: 9000,
+      iva: 1890,
+      total: 10890,
+      cae: '1234567890',
+      fechaVencimiento: '11/01/2025',
+      categoria: 'sin_clasificar',
+      signoFiscal: 1,
+    },
+  },
+  {
+    name: 'factura-b-ocr-cae-pie-espaciado',
+    text: `
+ORIGINAL
+EJEMPLO B
+B
+COD. 01
+FACTURA
+Punto de Venta: 00002 Comp. N 00000001
+Fecha de Emision: 05/09/2023
+CUIT: 20010203047
+Condicion frente al IVA: Consumidor Final
+Subtotal: $ 8,500.00
+Importe Total: $ 8,500.00
+Comprobante Autorizado
+CAE N : 71164 199718364
+Fecha de Vto. de CAE
+21/09/2023
+`,
+    expected: {
+      tipo: 'Factura B',
+      cuit: '20010203047',
+      fecha: '05/09/2023',
+      puntoVenta: 2,
+      numero: 1,
+      condicionIVA: 'Consumidor Final',
+      netoGravado: 8500,
+      total: 8500,
+      cae: '71164199718364',
+      fechaVencimiento: '21/09/2023',
+      categoria: 'sin_clasificar',
+      signoFiscal: 1,
+    },
+  },
+  {
+    name: 'factura-a-ocr-digitos-confundidos',
+    text: `
+FACTURA A
+COD. OOI
+Punto de Venta: OOOO4 Comp. Nro: OOOOI234
+Fecha de Emision: O5/O9/2O23
+Razon Social: ACME SERVICIOS SA
+CUIT: 3O-7IIIIIII-8
+Condicion frente al IVA: Responsable Inscripto
+Importe Neto Gravado: $ IO.OOO,OO
+IVA 2I%: $ 2.IOO,OO
+Importe Total: $ I2.IOO,OO
+CAE Nro: 7623456789OI23
+Fecha de Vto. de CAE: 25/O9/2O23
+`,
+    expected: {
+      tipo: 'Factura A',
+      cuit: '30711111118',
+      razonSocial: 'ACME SERVICIOS SA',
+      fecha: '05/09/2023',
+      puntoVenta: 4,
+      numero: 1234,
+      condicionIVA: 'Responsable Inscripto',
+      netoGravado: 10000,
+      iva: 2100,
+      total: 12100,
+      cae: '76234567890123',
+      fechaVencimiento: '25/09/2023',
+      categoria: 'sin_clasificar',
+      signoFiscal: 1,
+    },
+  },
+  {
+    name: 'factura-b-ocr-cuit-y-cae-con-letras',
+    text: `
+ORIGINAL
+EJEMPLO B
+B
+COD. O1
+FACTURA
+Punto de Venta: OOOO2 Comp. N OOOOOOOI
+Fecha de Emision: O5/O9/2O23
+CUIT: 2OOIO2O3O47
+Condicion frente al IVA: Consumidor Final
+Subtotal: $ 8,5OO.OO
+Importe Total: $ 8,5OO.OO
+CAE N: 7II64I997I8364
+Fecha de Vto. de CAE: 2I/O9/2O23
+`,
+    expected: {
+      tipo: 'Factura B',
+      cuit: '20010203047',
+      fecha: '05/09/2023',
+      puntoVenta: 2,
+      numero: 1,
+      condicionIVA: 'Consumidor Final',
+      netoGravado: 8500,
+      total: 8500,
+      cae: '71164199718364',
+      fechaVencimiento: '21/09/2023',
+      categoria: 'sin_clasificar',
+      signoFiscal: 1,
+    },
+  },
+  {
     name: 'factura-a-usd-total-ars-ocr-factor-10',
     text: `
 ORIGINAL

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx-js-style'
-import type { Comprobante, IVADetalle } from '../types/comprobante'
+import type { Comprobante, IVADetalle, BatchItem } from '../types/comprobante'
 import { CATEGORIA_LABELS, ALICUOTAS } from '../config'
 import type { PreliquidacionResult } from './preliquidacionService'
 
@@ -292,7 +292,7 @@ export function exportToExcel(data: PreliquidacionResult): void {
   ]
   wsDetalle['!freeze'] = { ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }
   wsDetalle['!autofilter'] = { ref: `A1:W${Math.max(1, detalleData.length)}` }
-  applyTableStyle(wsDetalle, 'A1:W1', `A2:W${Math.max(2, detalleData.length)}`, 'E2:V1048576')
+  applyTableStyle(wsDetalle, 'A1:W1', `A2:W${Math.max(2, detalleData.length)}`, `E2:V${Math.max(2, detalleData.length)}`)
   XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle Comprobantes')
 
   const ivaDetalleData = [
@@ -321,9 +321,82 @@ export function exportToExcel(data: PreliquidacionResult): void {
   ]
   wsIvaDetalle['!freeze'] = { ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }
   wsIvaDetalle['!autofilter'] = { ref: `A1:G${Math.max(1, ivaDetalleData.length)}` }
-  applyTableStyle(wsIvaDetalle, 'A1:G1', `A2:G${Math.max(2, ivaDetalleData.length)}`, 'F2:G1048576')
+  applyTableStyle(wsIvaDetalle, 'A1:G1', `A2:G${Math.max(2, ivaDetalleData.length)}`, `F2:G${Math.max(2, ivaDetalleData.length)}`)
   XLSX.utils.book_append_sheet(wb, wsIvaDetalle, 'Detalle IVA')
 
   const fileName = `preliquidacion_${data.periodo.replace(/[/\s]/g, '_')}.xlsx`
+  XLSX.writeFile(wb, fileName, { cellStyles: true, bookSST: true })
+}
+
+export function exportBatchReport(batchResults: BatchItem[], loteId: number): void {
+  const wb = XLSX.utils.book_new()
+
+  const summary = {
+    total: batchResults.length,
+    procesado: batchResults.filter((r) => r.status === 'procesado').length,
+    duplicado: batchResults.filter((r) => r.status === 'duplicado').length,
+    error: batchResults.filter((r) => r.status === 'error' || r.status === 'sin_texto').length,
+  }
+
+  const resumenData = [
+    ['Reporte de Lote', '', ''],
+    ['Lote ID', loteId, ''],
+    ['Fecha', new Date().toLocaleDateString('es-AR'), ''],
+    [],
+    ['Estado', 'Cantidad', ''],
+    ['Válidos', summary.procesado, ''],
+    ['Duplicados', summary.duplicado, ''],
+    ['Errores', summary.error, ''],
+    ['Total', summary.total, ''],
+  ]
+
+  const wsResumen = XLSX.utils.aoa_to_sheet(resumenData) as WorkSheet
+  wsResumen['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 15 }]
+  styleRange(wsResumen, 'A1:C1', {
+    fill: { patternType: 'solid', fgColor: { rgb: COLORS.navyDark } },
+    font: { bold: true, sz: 14, color: { rgb: COLORS.white } },
+  })
+  styleRange(wsResumen, 'A5:B5', {
+    fill: { patternType: 'solid', fgColor: { rgb: COLORS.navy } },
+    font: { bold: true, color: { rgb: COLORS.white } },
+  })
+  XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen')
+
+  const detalleData = [
+    ['Archivo', 'Estado', 'Mensaje', 'Tipo', 'CUIT', 'Razón Social', 'Fecha', 'Neto Gravado', 'IVA', 'Total'],
+    ...batchResults.map((r) => [
+      r.fileName,
+      r.status,
+      r.message || '',
+      r.comprobante?.tipo || '',
+      r.comprobante?.cuit || '',
+      r.comprobante?.razonSocial || '',
+      r.comprobante?.fecha || '',
+      r.comprobante?.netoGravado || '',
+      r.comprobante?.iva || '',
+      r.comprobante?.total || '',
+    ]),
+  ]
+
+  const wsDetalle = XLSX.utils.aoa_to_sheet(detalleData) as WorkSheet
+  wsDetalle['!cols'] = [
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 30 },
+    { wch: 12 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 15 },
+  ]
+  wsDetalle['!freeze'] = { ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }
+  wsDetalle['!autofilter'] = { ref: `A1:J${Math.max(1, detalleData.length)}` }
+  applyTableStyle(wsDetalle, 'A1:J1', `A2:J${Math.max(2, detalleData.length)}`, `H2:J${Math.max(2, detalleData.length)}`)
+  
+  XLSX.utils.book_append_sheet(wb, wsDetalle, 'Detalle Archivos')
+
+  const fileName = `reporte_lote_${loteId}.xlsx`
   XLSX.writeFile(wb, fileName, { cellStyles: true, bookSST: true })
 }

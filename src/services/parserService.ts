@@ -1,4 +1,4 @@
-import type { Categoria, Comprobante } from '../types/comprobante'
+import type { Categoria, Comprobante, OCRFieldWarning } from '../types/comprobante'
 import { ALICUOTAS, CONDITION_MAP } from '../config'
 import { clasificarFiscalmente, getSignoFiscalPorComprobante } from './fiscalClassifierService'
 
@@ -23,8 +23,64 @@ function extract(pattern: RegExp, text: string, group = 1): string {
   return match?.[group]?.trim() || ''
 }
 
+const OCR_DIGIT_MAP: Record<string, string> = {
+  O: '0',
+  Q: '0',
+  D: '0',
+  I: '1',
+  L: '1',
+  '|': '1',
+  S: '5',
+  B: '8',
+  G: '6',
+  Z: '2',
+}
+
+function normalizeOCRDigits(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .split('')
+    .map((char) => OCR_DIGIT_MAP[char] || char)
+    .join('')
+}
+
+function normalizeOCRNumericContext(value: string): string {
+  return value.replace(
+    /([0-9OQDILSBGZ|][0-9OQDILSBGZ|.,:/-]*[0-9OQDILSBGZ|])/gi,
+    (token) => /[0-9.,:/-]/.test(token) ? normalizeOCRDigits(token) : token,
+  )
+}
+
+function extractDigitsWithOCRFix(value: string): string {
+  return normalizeOCRDigits(value).replace(/\D/g, '')
+}
+
+function normalizeDateOCR(value: string): string {
+  const normalized = normalizeOCRDigits(value)
+    .replace(/[.,]/g, '/')
+    .replace(/\s+/g, '')
+    .replace(/[^0-9/-]/g, '')
+
+  const parts = normalized.split(/[/-]/).filter(Boolean)
+  if (parts.length !== 3) return ''
+
+  const [dayRaw, monthRaw, yearRaw] = parts
+  const day = dayRaw.padStart(2, '0').slice(-2)
+  const month = monthRaw.padStart(2, '0').slice(-2)
+  const year = yearRaw.length === 2
+    ? `20${yearRaw}`
+    : yearRaw.length > 4
+      ? yearRaw.slice(-4)
+      : yearRaw
+
+  if (year.length !== 4) return ''
+  return `${day}/${month}/${year}`
+}
+
 function parseAmount(raw: string): number {
-  const cleaned = raw
+  const cleaned = normalizeOCRDigits(raw)
     .replace(/\s|\u00a0/g, '')
     .replace(/[^0-9,.-]/g, '')
 
@@ -64,7 +120,7 @@ function parseAmount(raw: string): number {
 }
 
 function parseRate(raw: string): number {
-  const cleaned = raw
+  const cleaned = normalizeOCRDigits(raw)
     .replace(/\s|\u00a0/g, '')
     .replace(/[^0-9,.-]/g, '')
 
@@ -81,26 +137,27 @@ function parseRate(raw: string): number {
 }
 
 function extractAmount(pattern: RegExp, text: string): number {
-  const raw = extract(pattern, text)
+  const raw = extract(pattern, text) || extract(pattern, normalizeOCRNumericContext(text))
   return raw ? parseAmount(raw) : 0
 }
 
 function extractAmountFromLines(text: string, labels: RegExp[], excludedLabels: RegExp[] = []): number {
   for (const line of getLines(text)) {
-    const normalized = normalizeText(line)
+    const normalized = normalizeText(normalizeOCRNumericContext(line))
     if (excludedLabels.some((label) => label.test(normalized))) continue
     if (!labels.some((label) => label.test(normalized))) continue
 
-    const amountMatches = [...line.matchAll(/([0-9]{1,3}(?:[.,\s]\d{3})+(?:[,.]\d{2})|[0-9]+[,.]\d{2}|[0-9]+(?:\.\d{2,})?)/g)]
+    const numericLine = normalizeOCRNumericContext(line)
+    const amountMatches = [...numericLine.matchAll(/([0-9]{1,3}(?:[.,\s]\d{3})+(?:[,.]\d{2})|[0-9]+[,.]\d{2}|[0-9]+(?:\.\d{2,})?)/g)]
     const amounts = amountMatches.map((match) => parseAmount(match[1])).filter((value) => value > 0)
-    if (amounts.length) return amounts.at(-1) || 0
+    if (amounts.length) return Math.max(...amounts)
   }
 
   return 0
 }
 
 function extractMoneyTotal(text: string): number {
-  const amounts = [...text.matchAll(/\$+\s*([0-9][0-9.]*,[0-9]{2}|[0-9][0-9.]*\.[0-9]{2,}|[0-9][0-9.]*)/g)]
+  const amounts = [...normalizeOCRNumericContext(text).matchAll(/\$+\s*([0-9][0-9.]*,[0-9]{2}|[0-9][0-9.]*\.[0-9]{2,}|[0-9][0-9.]*)/g)]
     .map((match) => parseAmount(match[1]))
     .filter((amount) => amount > 0)
 
@@ -265,7 +322,150 @@ function extractValueAfterLabel(text: string, label: RegExp): string {
 
 function extractLabeledNumber(text: string, label: RegExp): string {
   const value = extractValueAfterLabel(text, label)
-  return extract(/(\d{5,})/, value)
+  const digits = extractDigitsWithOCRFix(value)
+  return digits.length >= 5 ? digits : ''
+}
+
+function extractNumericValueAfterLabel(
+  text: string,
+  label: RegExp,
+  minDigits = 8,
+): string {
+  const value = extractValueAfterLabel(text, label)
+  const digits = extractDigitsWithOCRFix(value)
+  return digits.length >= minDigits ? digits : ''
+}
+
+function extractDateAfterLabel(text: string, label: RegExp): string {
+  const value = extractValueAfterLabel(text, label)
+  const normalized = normalizeDateOCR(value)
+  if (normalized) return normalized
+  return extract(/(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/, normalizeOCRDigits(value))
+}
+
+function extractCAE(text: string): string {
+  const fromLabel = extractNumericValueAfterLabel(
+    text,
+    /C\s*\.?\s*A\s*\.?\s*E(?:\s+N(?:RO|[Oº°])?)?/i,
+    8,
+  )
+  if (fromLabel) return fromLabel
+
+  const inlineMatch = text.match(
+    /C\s*\.?\s*A\s*\.?\s*E(?:\s+N(?:RO|[Oº°])?)?[\s:;#*._-]*((?:\d[\d\s.,-]*){8,})/i,
+  )
+  if (inlineMatch) {
+    const digits = inlineMatch[1].replace(/\D/g, '')
+    if (digits.length >= 8) return digits
+  }
+
+  return ''
+}
+
+function extractFechaVencimientoCAE(text: string): string {
+  const labeled = extractDateAfterLabel(
+    text,
+    /(?:FECHA DE VENCIMIENTO|FECHA DE VTO\.?\s*DE\s*C\s*\.?\s*A\s*\.?\s*E|VENCIMIENTO|VTO\.?)/i,
+  )
+  if (labeled) return labeled
+
+  return extract(
+    /(?:Fecha de Vencimiento|Fecha de Vto\.?\s*de\s*CAE|Vencimiento|Vto\.?)\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
+    text,
+  )
+}
+
+function extractCAERobust(text: string): string {
+  const direct = extractCAE(text)
+  if (direct) return direct
+
+  const normalized = normalizeOCRDigits(text)
+  const labeled = extractNumericValueAfterLabel(
+    normalized,
+    /C\s*\.?\s*A\s*\.?\s*E(?:\s+N(?:RO|[O\u00ba\u00b0])?)?/i,
+    8,
+  )
+  if (labeled) return labeled
+
+  const inlineMatch = normalized.match(
+    /C\s*\.?\s*A\s*\.?\s*E(?:\s+N(?:RO|[O\u00ba\u00b0])?)?[\s:;#*._-]*((?:[0-9][0-9\s.,-]*){8,})/i,
+  )
+  if (!inlineMatch) return ''
+
+  const digits = extractDigitsWithOCRFix(inlineMatch[1])
+  return digits.length >= 8 ? digits : ''
+}
+
+function extractFechaVencimientoCAERobust(text: string): string {
+  const direct = extractFechaVencimientoCAE(text)
+  if (direct) return normalizeDateOCR(direct) || direct
+
+  const normalized = normalizeOCRNumericContext(text)
+  const labeled = extractDateAfterLabel(
+    normalized,
+    /(?:FECHA DE VENCIMIENTO|FECHA DE VTO\.?\s*DE\s*C\s*\.?\s*A\s*\.?\s*E|VENCIMIENTO|VTO\.?)/i,
+  )
+  if (labeled) return normalizeDateOCR(labeled) || labeled
+
+  const inline = extract(
+    /(?:Fecha de Vencimiento|Fecha de Vto\.?\s*de\s*CAE|Vencimiento|Vto\.?)\s*:?\s*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})/i,
+    normalized,
+  )
+  return normalizeDateOCR(inline) || inline
+}
+
+function extractCUITRobust(text: string): string {
+  const direct = extract(/(?:CUIT|C\.U\.I\.T\.)\s*:?\s*(\d{2}[-\s]?\d{8}[-\s]?\d{1}|\d{11})/i, text)
+  const normalizedDirect = extractDigitsWithOCRFix(direct)
+  if (normalizedDirect.length === 11) return normalizedDirect
+
+  const loose = extract(
+    /(?:CUIT|C\.U\.I\.T\.?)\s*:?\s*([0-9OQDILSBGZ|]{2}[-\s]?[0-9OQDILSBGZ|]{8}[-\s]?[0-9OQDILSBGZ|]{1}|[0-9OQDILSBGZ|]{11})/i,
+    text,
+  )
+  const normalizedLoose = extractDigitsWithOCRFix(loose)
+  return normalizedLoose.length >= 10 ? normalizedLoose : normalizedDirect
+}
+
+function extractFechaRobust(text: string): string {
+  const direct = extract(
+    /(?:Fecha\s*:?|Fecha de Emisi[o\u00f3]n\s*:?)\s*([0-9OQDILSBGZ|]{1,2}[-/][0-9OQDILSBGZ|]{1,2}[-/][0-9OQDILSBGZ|]{2,4})/i,
+    text,
+  )
+  const normalizedDate = normalizeDateOCR(direct)
+  if (normalizedDate) return normalizedDate
+
+  const normalized = normalizeOCRNumericContext(text)
+  return parseSpanishDate(text) ||
+    normalizeDateOCR(extract(/\b([0-9OQDILSBGZ|]{2}\/[0-9OQDILSBGZ|]{2}\/[0-9OQDILSBGZ|]{4})\b/, normalized)) ||
+    ''
+}
+
+function inferNumeroRobust(text: string, isPaymentReceipt: boolean): number {
+  const direct = inferNumero(text, isPaymentReceipt)
+  if (direct) return direct
+  if (isPaymentReceipt) return 0
+
+  const pvAndNumber = text.match(
+    /(?:Punto de Venta|Pto\.?\s*Vta\.?|P\.V\.?)\s*:?\s*([0-9OQDILSBGZ|]{4,5})[\s\S]{0,80}?(?:Comp\.?\s*N(?:ro|[o\u00ba])?\.?|N(?:ro|[o\u00ba])\.?|Numero)\s*:?\s*([0-9OQDILSBGZ|]{8})/i,
+  )
+  if (pvAndNumber) return parseInt(extractDigitsWithOCRFix(pvAndNumber[2]), 10) || 0
+
+  const numMatch = text.match(
+    /(?:Comp\.?\s*N(?:ro|[o\u00ba])?\.?|N(?:ro|[o\u00ba])\.?|Numero)\s*:?\s*([0-9OQDILSBGZ|]{8})\b/i,
+  )
+  return numMatch ? parseInt(extractDigitsWithOCRFix(numMatch[1]), 10) : 0
+}
+
+function inferPuntoVentaRobust(text: string, isPaymentReceipt: boolean): number {
+  const direct = inferPuntoVenta(text, isPaymentReceipt)
+  if (direct) return direct
+  if (isPaymentReceipt) return 0
+
+  const pvMatch = text.match(
+    /(?:Punto de Venta|Pto\.?\s*Vta\.?|P\.V\.?)\s*:?\s*([0-9OQDILSBGZ|]{4,5})/i,
+  )
+  return pvMatch ? parseInt(extractDigitsWithOCRFix(pvMatch[1]), 10) : 0
 }
 
 function inferAlicuota(neto: number, iva: number): string {
@@ -402,6 +602,78 @@ function inferIVA(text: string): number {
   )
 }
 
+function isFiscalDocumentType(tipo: string): boolean {
+  const normalizedTipo = normalizeText(tipo)
+  return normalizedTipo.includes('FACTURA') ||
+    normalizedTipo.includes('NOTA DE CREDITO') ||
+    normalizedTipo.includes('NOTA DE DEBITO')
+}
+
+function pushFieldWarning(
+  warnings: OCRFieldWarning[],
+  field: string,
+  label: string,
+  message: string,
+) {
+  if (warnings.some((warning) => warning.field === field && warning.message === message)) return
+  warnings.push({ field, label, message })
+}
+
+export function buildOCRFieldWarnings(comprobante: Partial<Comprobante>): OCRFieldWarning[] {
+  const warnings: OCRFieldWarning[] = []
+  const tipo = comprobante.tipo || ''
+  const categoria = comprobante.categoria || 'sin_clasificar'
+  const fiscalDocument = isFiscalDocumentType(tipo)
+  const cuitDigits = (comprobante.cuit || '').replace(/\D/g, '')
+  const caeDigits = (comprobante.cae || '').replace(/\D/g, '')
+
+  if (!tipo || normalizeText(tipo) === 'DESCONOCIDO' || normalizeText(tipo) === 'FACTURA') {
+    pushFieldWarning(warnings, 'tipo', 'Tipo', 'Tipo detectado con poca precision; conviene revisarlo')
+  }
+
+  if (!comprobante.razonSocial?.trim()) {
+    pushFieldWarning(warnings, 'razonSocial', 'Razon social', 'No se detecto razon social con claridad')
+  }
+
+  if (!cuitDigits) {
+    pushFieldWarning(warnings, 'cuit', 'CUIT', 'No se detecto CUIT del emisor')
+  } else if (cuitDigits.length !== 11) {
+    pushFieldWarning(warnings, 'cuit', 'CUIT', `CUIT leido con longitud atipica (${cuitDigits.length} digitos)`)
+  }
+
+  if (!comprobante.fecha?.trim()) {
+    pushFieldWarning(warnings, 'fecha', 'Fecha', 'No se detecto fecha de emision')
+  }
+
+  if (!comprobante.total || comprobante.total <= 0) {
+    pushFieldWarning(warnings, 'total', 'Total', 'No se detecto importe total confiable')
+  }
+
+  if (fiscalDocument && !comprobante.puntoVenta) {
+    pushFieldWarning(warnings, 'puntoVenta', 'Punto de venta', 'No se detecto punto de venta fiscal')
+  }
+
+  if (fiscalDocument && !comprobante.numero) {
+    pushFieldWarning(warnings, 'numero', 'Numero', 'No se detecto numero de comprobante fiscal')
+  }
+
+  if (fiscalDocument && !caeDigits) {
+    pushFieldWarning(warnings, 'cae', 'CAE', 'No se detecto CAE en el comprobante')
+  } else if (caeDigits && caeDigits.length !== 14) {
+    pushFieldWarning(warnings, 'cae', 'CAE', `CAE leido con formato atipico (${caeDigits.length} digitos)`)
+  }
+
+  if (fiscalDocument && caeDigits && !comprobante.fechaVencimiento?.trim()) {
+    pushFieldWarning(warnings, 'fechaVencimiento', 'Vencimiento CAE', 'Se detecto CAE pero no su fecha de vencimiento')
+  }
+
+  if (categoria === 'sin_clasificar') {
+    pushFieldWarning(warnings, 'categoria', 'Categoria', 'La categoria fiscal requiere confirmacion manual')
+  }
+
+  return warnings
+}
+
 export function parseComprobante(text: string, _fileName?: string): Partial<Comprobante> {
   const normalized = normalizeText(text)
   const isPaymentReceipt = /COMPROBANTE DE PAGO|PAGO FACIL|MERCADO PAGO/.test(normalized)
@@ -417,19 +689,14 @@ export function parseComprobante(text: string, _fileName?: string): Partial<Comp
     condicionRaw ? condicionRaw.charAt(0).toUpperCase() + condicionRaw.slice(1).toLowerCase() : ''
   )
 
-  const cuitRaw = extract(/(?:CUIT|C\.U\.I\.T\.)\s*:?\s*(\d{2}[-\s]?\d{8}[-\s]?\d{1}|\d{11})/i, text)
-  const cuit = cuitRaw.replace(/[-\s]/g, '')
+  const cuit = extractCUITRobust(text)
 
   const razonSocial = inferRazonSocial(text, normalized)
 
-  const fechaComp = extract(
-    /(?:Fecha\s*:?|Fecha de Emisi[o\u00f3]n\s*:?)\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/i,
-    text,
-  )
-  const fecha = fechaComp || parseSpanishDate(text) || extract(/\b(\d{2}\/\d{2}\/\d{4})\b/, text) || ''
+  const fecha = extractFechaRobust(text)
 
-  const puntoVenta = inferPuntoVenta(text, isPaymentReceipt)
-  const numero = inferNumero(text, isPaymentReceipt)
+  const puntoVenta = inferPuntoVentaRobust(text, isPaymentReceipt)
+  const numero = inferNumeroRobust(text, isPaymentReceipt)
   const moneda = extractMoneda(text)
 
   const totalDetectado = extractAmountFromLines(text, [/IMPORTE TOTAL/, /^TOTAL\b/, /TOTAL COMPROBANTE/]) ||
@@ -470,15 +737,8 @@ export function parseComprobante(text: string, _fileName?: string): Partial<Comp
   const retenciones = usarPesos ? convertCurrency(retencionesDetectadas, tipoCambio) : retencionesDetectadas
   const total = usarPesos ? totalPesos : totalDetectado
 
-  const cae = extract(
-    /(?:CAE|C\.A\.E\.?)\s*(?:N(?:ro|[o\u00ba])?\.?)?\s*:?\s*(\d{14}|\d{11,})/i,
-    text,
-  )
-
-  const fechaVto = extract(
-    /(?:Fecha de Vencimiento|Fecha de Vto\.? de CAE|Vencimiento|Vto\.?)\s*:?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i,
-    text,
-  )
+  const cae = extractCAERobust(text)
+  const fechaVto = extractFechaVencimientoCAERobust(text)
 
   const operation = isPaymentReceipt ? extractLabeledNumber(text, /NUMERO DE OPERACION/) : ''
   const transaction = isPaymentReceipt ? extractLabeledNumber(text, /NUMERO DE TRANSACCION/) : ''
@@ -567,11 +827,16 @@ export function parseComprobante(text: string, _fileName?: string): Partial<Comp
     createdAt: new Date().toISOString(),
   }
   const clasificacionFiscal = clasificarFiscalmente(base, text)
+  const fieldWarnings = buildOCRFieldWarnings({
+    ...base,
+    categoria: clasificacionFiscal.categoria,
+  })
 
   return {
     ...base,
     categoria: clasificacionFiscal.categoria,
     signoFiscal: getSignoFiscalPorComprobante(base),
     clasificacionFiscal,
+    fieldWarnings,
   }
 }
