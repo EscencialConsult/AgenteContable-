@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Upload,
   BarChart3,
+  TrendingUp,
   ShieldCheck,
   LogOut,
   Sun,
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/bandeja', label: 'Comprobantes', icon: ClipboardList },
   { to: '/upload', label: 'Cargar', icon: Upload },
   { to: '/preliquidacion', label: 'Preliquidación', icon: BarChart3 },
+  { to: '/monotributo', label: 'Monotributo', icon: TrendingUp },
   { to: '/backup', label: 'Backup', icon: ShieldCheck },
 ]
 

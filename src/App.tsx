@@ -14,6 +14,7 @@ const ChatPage = lazy(() => import('./pages/ChatPage'))
 const BandejaPage = lazy(() => import('./pages/BandejaPage'))
 const UploadPage = lazy(() => import('./pages/UploadPage'))
 const PreliquidacionPage = lazy(() => import('./pages/PreliquidacionPage'))
+const MonotributoPage = lazy(() => import('./pages/MonotributoPage'))
 const BackupPage = lazy(() => import('./pages/BackupPage'))
 
 function LoadingFallback() {
@@ -95,16 +96,26 @@ const router = createBrowserRouter([
             </ErrorBoundary>
           ),
         },
-        {
-          path: '/backup',
-          element: (
-            <ErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <BackupPage />
-              </Suspense>
-            </ErrorBoundary>
-          ),
-        },
+          {
+            path: '/monotributo',
+            element: (
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingFallback />}>
+                  <MonotributoPage />
+                </Suspense>
+              </ErrorBoundary>
+            ),
+          },
+          {
+            path: '/backup',
+            element: (
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingFallback />}>
+                  <BackupPage />
+                </Suspense>
+              </ErrorBoundary>
+            ),
+          },
       ],
     }],
   },
