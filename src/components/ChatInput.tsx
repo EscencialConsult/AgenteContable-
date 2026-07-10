@@ -96,7 +96,7 @@ export default function ChatInput({ onSend, loading }: Props) {
         <label
           htmlFor="chatFileInput"
           title="Adjuntar comprobante"
-          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl text-text-muted hover:text-teal hover:bg-teal/10 transition-all duration-200 cursor-pointer mb-0.5"
+          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl text-text-muted hover:text-teal hover:bg-teal/10 transition-all duration-200 cursor-pointer mb-0.5 focus:outline-none focus:ring-2 focus:ring-teal/40"
         >
           <Paperclip size={18} />
         </label>
@@ -121,7 +121,7 @@ export default function ChatInput({ onSend, loading }: Props) {
           placeholder="Escribe tu consulta contable..."
           rows={1}
           disabled={loading}
-          className="flex-1 bg-transparent text-text-primary text-sm outline-none resize-none max-h-[120px] placeholder:text-text-muted leading-relaxed py-0.5 disabled:opacity-50"
+          className="flex-1 bg-transparent text-text-primary text-sm outline-none resize-none max-h-[120px] placeholder:text-text-muted/70 leading-relaxed py-1 caret-teal transition-all duration-300 disabled:opacity-50 "
         />
 
         {/* Send button — right, rounded */}
@@ -129,7 +129,7 @@ export default function ChatInput({ onSend, loading }: Props) {
           onClick={handleSend}
           disabled={!canSend}
           aria-label="Enviar mensaje"
-          className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 mb-0.5 ${
+          className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 mb-0.5 focus:outline-none focus:ring-2 focus:ring-teal/40 ${
             canSend
               ? 'bg-teal text-navy-900 hover:bg-teal/80 hover:scale-105 shadow-glow-teal cursor-pointer'
               : 'bg-glass-hover text-text-muted cursor-not-allowed opacity-50'

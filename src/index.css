@@ -77,12 +77,51 @@ body {
   50% { filter: drop-shadow(0 10px 40px var(--glow-teal-strong)); }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .animate-float { animation: float 15s infinite ease-in-out; }
 .animate-slideIn { animation: slideIn 0.3s ease; }
 .animate-glow { animation: glow 3s ease-in-out infinite; }
 .animate-pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+.animate-shimmer { animation: shimmer 1.5s ease-in-out infinite; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%); background-size: 200% 100%; }
+.animate-fadeInUp { animation: fadeInUp 0.4s ease both; }
+.animate-scaleIn { animation: scaleIn 0.2s ease both; }
 
-.custom-scrollbar::-webkit-scrollbar { width: 10px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(141, 223, 228, 0.32); border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.05); }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(215, 115, 216, 0.42); }
+/* ── Dropdown options (dark/light mode) ── */
+select option {
+  background-color: var(--color-navy-800);
+  color: var(--color-text-primary);
+}
+
+/* ── Global scrollbar (Firefox) ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(141, 223, 228, 0.32) rgba(255, 255, 255, 0.05);
+}
+
+/* ── Global scrollbar (WebKit) ── */
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(141, 223, 228, 0.32);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(215, 115, 216, 0.42);
+  background-clip: content-box;
+}

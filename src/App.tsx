@@ -7,14 +7,15 @@ import { AuthProvider } from './context/AuthContext'
 import { useAuth } from './hooks/useAuth'
 import { ThemeProvider } from './context/ThemeContext'
 import { ToastProvider } from './context/ToastContext'
+import { ClienteProvider } from './context/ClienteContext'
 import ToastContainer from './components/ToastContainer'
 
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const ChatPage = lazy(() => import('./pages/ChatPage'))
 const BandejaPage = lazy(() => import('./pages/BandejaPage'))
-const UploadPage = lazy(() => import('./pages/UploadPage'))
 const PreliquidacionPage = lazy(() => import('./pages/PreliquidacionPage'))
 const MonotributoPage = lazy(() => import('./pages/MonotributoPage'))
+const ClientesPage = lazy(() => import('./pages/ClientesPage'))
 const BackupPage = lazy(() => import('./pages/BackupPage'))
 
 function LoadingFallback() {
@@ -77,16 +78,6 @@ const router = createBrowserRouter([
           ),
         },
         {
-          path: '/upload',
-          element: (
-            <ErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <UploadPage />
-              </Suspense>
-            </ErrorBoundary>
-          ),
-        },
-        {
           path: '/preliquidacion',
           element: (
             <ErrorBoundary>
@@ -116,6 +107,16 @@ const router = createBrowserRouter([
               </ErrorBoundary>
             ),
           },
+          {
+            path: '/clientes',
+            element: (
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingFallback />}>
+                  <ClientesPage />
+                </Suspense>
+              </ErrorBoundary>
+            ),
+          },
       ],
     }],
   },
@@ -130,8 +131,10 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <ToastProvider>
-          <RouterProvider router={router} />
-          <ToastContainer />
+          <ClienteProvider>
+            <RouterProvider router={router} />
+            <ToastContainer />
+          </ClienteProvider>
         </ToastProvider>
       </ThemeProvider>
     </AuthProvider>

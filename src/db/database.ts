@@ -115,4 +115,48 @@ db.version(5).stores({
     }),
 )
 
+db.version(6).stores({
+  comprobantes:
+    '++id, clienteId, periodoId, loteId, tipo, cuit, fecha, categoria, estado, estadoRevision, nivelValidacion, origen, createdAt, validatedAt',
+  clientes: '++id, cuit, razonSocial, activo, createdAt',
+  periodos: '++id, clienteId, [clienteId+anio+mes], estado, anio, mes, createdAt',
+  lotesCarga: '++id, clienteId, periodoId, origen, estado, createdAt',
+  chatMessages: '++id, role, createdAt',
+}).upgrade(async (tx) => {
+  const clienteCount = await tx.table('clientes').count()
+  if (clienteCount > 0) return
+
+  const comprobanteCount = await tx.table('comprobantes').count()
+  if (comprobanteCount === 0) return
+
+  const id = await tx.table('clientes').add({
+    razonSocial: 'Cliente General',
+    cuit: '00-00000000-0',
+    condicionIVA: 'MONOTRIBUTO',
+    activo: true,
+    createdAt: new Date().toISOString(),
+  })
+
+  await tx
+    .table('comprobantes')
+    .toCollection()
+    .modify((c: Comprobante) => {
+      c.clienteId = id as number
+    })
+
+  await tx
+    .table('periodos')
+    .toCollection()
+    .modify((p: PeriodoFiscal) => {
+      p.clienteId = id as number
+    })
+
+  await tx
+    .table('lotesCarga')
+    .toCollection()
+    .modify((l: LoteCarga) => {
+      l.clienteId = id as number
+    })
+})
+
 export { db }

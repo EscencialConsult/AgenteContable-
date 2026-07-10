@@ -157,7 +157,7 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
     onSave(draft)
   }
 
-  const inputClass = 'w-full px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle'
+  const inputClass = 'w-full px-3 py-2 bg-navy-800 border border-glass-border rounded-xl text-text-primary text-sm outline-none transition-all duration-300 cursor-pointer hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5'
   const labelClass = 'block text-text-secondary text-xs font-medium uppercase tracking-wide mb-1.5'
 
   return (
@@ -226,7 +226,7 @@ export default function ComprobanteForm({ initial, onSave, onCancel, fileName }:
                     key={value as string}
                     type="button"
                     onClick={() => handleChange('categoria', value as string)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-teal/40 ${
                       form.categoria === value
                         ? 'bg-teal/15 border-teal/40 text-teal'
                         : 'bg-navy-800 border-glass-border text-text-secondary hover:bg-glass-hover hover:text-text-primary'

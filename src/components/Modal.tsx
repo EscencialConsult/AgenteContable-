@@ -76,7 +76,7 @@ export default function Modal({ open, onClose, title, children, wide }: Props) {
       onKeyDown={handleKeyDown}
       role="presentation"
     >
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-fadeInUp" />
       <div
         ref={contentRef}
         role="dialog"
@@ -84,7 +84,7 @@ export default function Modal({ open, onClose, title, children, wide }: Props) {
         aria-label={title}
         className={`relative z-10 w-full mx-4 ${
           wide ? 'max-w-3xl' : 'max-w-lg'
-        } bg-navy-800 rounded-2xl border border-glass-border shadow-[0_25px_60px_rgba(0,0,0,0.5)] animate-slideIn`}
+        } bg-navy-800 rounded-2xl border border-glass-border shadow-modal animate-scaleIn`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-glass-border">
@@ -92,7 +92,7 @@ export default function Modal({ open, onClose, title, children, wide }: Props) {
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="w-8 h-8 rounded-lg bg-glass text-text-muted flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-glass-hover hover:text-text-primary"
+            className="w-8 h-8 rounded-xl bg-glass text-text-muted flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-glass-hover hover:text-text-primary"
           >
             <X size={16} />
           </button>

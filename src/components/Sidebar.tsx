@@ -3,23 +3,25 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   MessageSquare,
   ClipboardList,
-  Upload,
   BarChart3,
   TrendingUp,
   ShieldCheck,
+  Users,
   LogOut,
   Sun,
   Moon,
   X,
+  ChevronDown,
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useTheme } from '../context/ThemeContext'
+import { useCliente } from '../hooks/useCliente'
 import { LOGO_URL_DARK, LOGO_URL_LIGHT } from '../config'
 
 const navItems = [
   { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/bandeja', label: 'Comprobantes', icon: ClipboardList },
-  { to: '/upload', label: 'Cargar', icon: Upload },
+  { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/preliquidacion', label: 'Preliquidación', icon: BarChart3 },
   { to: '/monotributo', label: 'Monotributo', icon: TrendingUp },
   { to: '/backup', label: 'Backup', icon: ShieldCheck },
@@ -34,6 +36,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { clienteActivo, setClienteActivo, clientes } = useCliente()
 
   const logoSrc = theme === 'dark' ? LOGO_URL_DARK : LOGO_URL_LIGHT
 
@@ -51,7 +54,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
       <div className="p-6 border-b border-glass-border flex items-center justify-between">
         <div className="flex items-center gap-4">
           {logoError ? (
-            <div className="w-9 h-9 rounded-lg bg-teal/20 border border-teal/30 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-teal/20 border border-teal/30 flex items-center justify-center shrink-0">
               <span className="text-teal text-xs font-bold">E</span>
             </div>
           ) : (
@@ -79,6 +82,30 @@ export default function Sidebar({ onClose }: SidebarProps) {
         )}
       </div>
 
+      {clientes.length > 0 && (
+        <div className="px-4 pt-3 pb-1">
+          <p className="text-text-muted text-[10px] uppercase tracking-wider mb-1.5 px-4">Cliente activo</p>
+          <div className="relative">
+            <select
+              value={clienteActivo?.id ?? ''}
+              onChange={(e) => {
+                const id = Number(e.target.value)
+                const cliente = clientes.find((c) => c.id === id) || null
+                setClienteActivo(cliente)
+              }}
+              className="appearance-none w-full bg-navy-800 border border-glass-border text-text-primary rounded-xl px-4 py-2 pr-8 text-sm outline-none transition-all duration-300 cursor-pointer truncate hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5"
+            >
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.razonSocial}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          </div>
+        </div>
+      )}
+
       <nav className="flex-1 p-4 space-y-1" role="navigation" aria-label="Navegación principal">
         {navItems.map((item) => (
           <NavLink
@@ -86,7 +113,7 @@ export default function Sidebar({ onClose }: SidebarProps) {
             to={item.to}
             onClick={onClose}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
                   ? 'bg-teal/20 text-teal border border-teal/30'
                   : 'text-text-secondary hover:bg-glass-hover hover:text-text-primary border border-transparent'
@@ -102,14 +129,14 @@ export default function Sidebar({ onClose }: SidebarProps) {
       <div className="p-4 border-t border-glass-border space-y-1">
         <button
           onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-text-muted hover:bg-glass-hover hover:text-text-primary transition-all duration-200 border border-transparent hover:border-glass-border"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-text-muted hover:bg-glass-hover hover:text-text-primary transition-all duration-200 border border-transparent hover:border-glass-border focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900"
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           {theme === 'dark' ? 'Tema claro' : 'Tema oscuro'}
         </button>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-text-muted hover:bg-error-bg hover:text-error transition-all duration-200 border border-transparent hover:border-error/30"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-text-muted hover:bg-error-bg hover:text-error transition-all duration-200 border border-transparent hover:border-error/30 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900"
         >
           <LogOut size={18} />
           Salir

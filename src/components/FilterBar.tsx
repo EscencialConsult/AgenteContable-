@@ -36,7 +36,7 @@ export default function FilterBar({ filters, onChange }: Props) {
   }
 
   const selectClass =
-    'px-3 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 focus:border-teal focus:shadow-ring-teal-subtle appearance-none cursor-pointer min-w-[160px]'
+    'px-3 py-2 bg-navy-800 border border-glass-border rounded-xl text-text-primary text-sm outline-none transition-all duration-300 focus:border-teal focus:shadow-ring-teal-subtle focus:-translate-y-0.5 appearance-none cursor-pointer min-w-[160px] hover:bg-glass-hover'
 
   return (
     <div className="flex flex-wrap gap-3 items-center">
@@ -50,7 +50,7 @@ export default function FilterBar({ filters, onChange }: Props) {
           placeholder="Buscar por CUIT, razón social..."
           value={localSearch}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-200 focus:border-teal focus:shadow-ring-teal-subtle placeholder:text-text-muted"
+          className="w-full pl-10 pr-4 py-2 bg-navy-800 border border-glass-border rounded-xl text-text-primary text-sm outline-none transition-all duration-300 focus:border-teal focus:shadow-ring-teal-subtle focus:-translate-y-0.5 hover:bg-glass-hover placeholder:text-text-muted"
         />
       </div>
 
@@ -104,7 +104,7 @@ export default function FilterBar({ filters, onChange }: Props) {
               periodoId: '',
             })
           }
-          className="px-3 py-2 text-xs text-text-muted hover:text-text-primary transition-colors"
+          className="px-3 py-2 text-xs text-text-muted hover:text-text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900 rounded"
         >
           Limpiar filtros
         </button>

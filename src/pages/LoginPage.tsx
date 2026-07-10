@@ -46,7 +46,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-navy-900 font-[Inter,system-ui,sans-serif]">
+    <main className="min-h-screen flex bg-navy-900 font-[Inter,system-ui,sans-serif]">
       {/* ── Left decorative panel (hidden on mobile) ── */}
       <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden bg-gradient-to-br from-teal/25 via-navy-800 to-teal-dark/40 flex-col justify-between p-12">
         {/* Animated blobs */}
@@ -202,7 +202,7 @@ export default function LoginPage() {
 
               {/* Error */}
               {error && (
-                <div className="flex items-start gap-3 bg-error-bg border border-[rgba(255,82,82,0.25)] text-error px-4 py-3 rounded-xl text-sm animate-slideIn">
+                <div className="flex items-start gap-3 bg-error-bg border border-error/25 text-error px-4 py-3 rounded-xl text-sm animate-slideIn">
                   <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                   <span>{error}</span>
                 </div>
@@ -213,7 +213,7 @@ export default function LoginPage() {
                 id="login-submit"
                 type="submit"
                 disabled={loading}
-                className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer mt-2 ${
+                className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer mt-2 focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900 ${
                   loading
                     ? 'bg-teal/50 text-navy-900/70 cursor-not-allowed'
                     : 'bg-teal text-navy-900 hover:bg-teal/85 hover:scale-[1.02] active:scale-[0.98] shadow-glow-teal hover:shadow-glow-teal-strong'
@@ -235,6 +235,6 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

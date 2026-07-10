@@ -29,7 +29,7 @@ export default function Pagination({
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="px-2 py-1 bg-navy-800 border border-glass-border rounded text-text-primary text-xs outline-none cursor-pointer hover:bg-glass-hover focus:border-teal"
+            className="px-2 py-1 bg-navy-800 border border-glass-border rounded-xl text-text-primary text-xs outline-none cursor-pointer transition-all duration-300 hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5"
           >
             {PAGE_SIZES.map((s) => (
               <option key={s} value={s} className="bg-navy-800">
@@ -49,7 +49,7 @@ export default function Pagination({
           <button
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage <= 1}
-            className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-hover transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-hover transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900"
             aria-label="Página anterior"
           >
             <ChevronLeft size={16} />
@@ -64,7 +64,7 @@ export default function Pagination({
               <button
                 key={p}
                 onClick={() => onPageChange(p)}
-                className={`min-w-[28px] h-7 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                className={`min-w-[28px] h-7 rounded-md text-xs font-medium transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900 ${
                   p === currentPage
                     ? 'bg-teal/20 text-teal border border-teal/30'
                     : 'text-text-muted hover:text-text-primary hover:bg-glass-hover'
@@ -80,7 +80,7 @@ export default function Pagination({
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage >= totalPages}
-            className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-hover transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-glass-hover transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900"
             aria-label="Página siguiente"
           >
             <ChevronRight size={16} />

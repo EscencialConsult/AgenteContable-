@@ -390,6 +390,7 @@ export function validarReglasContables(
 
 export async function validarComprobante(
   comprobante: Partial<Comprobante>,
+  signal?: AbortSignal,
 ): Promise<Validacion[]> {
   const normalized = normalizarMonedaExtranjera(comprobante)
   const validaciones: Validacion[] = []
@@ -461,7 +462,9 @@ export async function validarComprobante(
     })
   }
 
+  if (signal?.aborted) return []
   const duplicado = await findComprobanteDuplicado(normalized)
+  if (signal?.aborted) return []
   if (duplicado) {
     validaciones.push({
       tipo: 'duplicado',

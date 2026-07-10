@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { AlertTriangle, Receipt, RefreshCw, Scale } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Receipt, RefreshCw, Scale } from 'lucide-react'
 import { formatCurrency } from '../utils/format'
-import { getAllComprobantesFlat } from '../db/repositories/comprobanteRepository'
+import { getAllComprobantesFlat, getComprobantesFlatByCliente } from '../db/repositories/comprobanteRepository'
 import {
   calcularFacturacionAnualDesde,
   obtenerCategoriaRecomendada,
@@ -10,11 +10,19 @@ import {
   type FacturacionAnualResult,
 } from '../services/monotributoService'
 import { CATEGORIAS_MONOTRIBUTO } from '../../config/monotributo'
+import { useCliente } from '../hooks/useCliente'
+import Card from '../components/ui/Card'
+import PageHeader from '../components/ui/PageHeader'
 
 export default function MonotributoPage() {
   const [esServicio, setEsServicio] = useState(true)
+  const [categoriaActualId, setCategoriaActualId] = useState<string>('')
+  const { clienteActivo, setClienteActivo, clientes } = useCliente()
 
-  const comprobantes = useLiveQuery(() => getAllComprobantesFlat())
+  const comprobantes = useLiveQuery(
+    () => clienteActivo?.id ? getComprobantesFlatByCliente(clienteActivo.id) : getAllComprobantesFlat(),
+    [clienteActivo?.id],
+  )
 
   const data = useMemo<FacturacionAnualResult | null>(() => {
     if (!comprobantes) return null
@@ -25,6 +33,18 @@ export default function MonotributoPage() {
     () => data ? obtenerCategoriaRecomendada(data.facturacion) : null,
     [data],
   )
+
+  const categoriaActual = useMemo(
+    () => CATEGORIAS_MONOTRIBUTO.find((c) => c.id === categoriaActualId) || null,
+    [categoriaActualId],
+  )
+
+  const infoCategoriaActual = useMemo(() => {
+    if (!data || !categoriaActual) return null
+    const pct = Math.round((data.facturacion / categoriaActual.facturacionMax) * 1000) / 10
+    const excede = data.facturacion > categoriaActual.facturacionMax
+    return { pctUsado: pct, excede }
+  }, [data, categoriaActual])
 
   const tabla = useMemo(
     () => data && recomendada ? getTablaCategorias(data.facturacion, recomendada) : [],
@@ -40,15 +60,31 @@ export default function MonotributoPage() {
     esServicio ? cat.cuotaServicios : cat.cuotaBienes
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <div className="bg-glass border-b border-glass-border px-8 py-4 flex-shrink-0 flex items-center justify-between">
-        <div>
-          <h2 className="text-text-primary text-lg font-semibold">Monotributo</h2>
-          <p className="text-text-muted text-xs">Calculador de categoría según facturación anual</p>
-        </div>
-      </div>
+    <div className="flex-1 flex flex-col h-full overflow-hidden animate-fadeInUp">
+      <PageHeader title="Monotributo" subtitle="Calculador de categoría según facturación anual">
+        {clientes.length > 0 && (
+          <div className="relative">
+            <select
+              value={clienteActivo?.id ?? ''}
+              onChange={(e) => {
+                const id = Number(e.target.value)
+                const c = clientes.find((cl) => cl.id === id) || null
+                setClienteActivo(c)
+              }}
+              className="appearance-none bg-navy-800 border border-glass-border text-text-primary rounded-xl pl-4 pr-10 py-2.5 text-sm font-medium outline-none transition-all duration-300 cursor-pointer min-w-[200px] hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5"
+            >
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.razonSocial}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+          </div>
+        )}
+      </PageHeader>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+      <div className="flex-1 overflow-y-auto p-6">
         {!comprobantes && (
           <div className="flex items-center justify-center h-full text-text-muted">
             <RefreshCw size={32} className="animate-spin mr-3" />
@@ -59,7 +95,7 @@ export default function MonotributoPage() {
         {data && (
           <div className="space-y-6 max-w-5xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="bg-glass border border-glass-border rounded-2xl p-6 lg:col-span-2">
+              <Card className="lg:col-span-2">
                 <p className="text-text-muted text-xs uppercase tracking-wide mb-1">Facturación Anual Estimada</p>
                 <p className="text-text-primary text-3xl font-bold">
                   ${formatCurrency(data.facturacion)}
@@ -70,16 +106,101 @@ export default function MonotributoPage() {
                     <span className="text-yellow-400"> · Revisá tipo y categoría de los comprobantes</span>
                   )}
                 </p>
-              </div>
+              </Card>
 
-              <div className="bg-glass border border-glass-border rounded-2xl p-6">
+              <Card>
                 <p className="text-text-muted text-xs uppercase tracking-wide mb-1">Período evaluado</p>
                 <p className="text-text-primary text-lg font-semibold">{data.desde} — {data.hasta}</p>
                 <p className="text-text-muted text-xs mt-2">
                   Límite máx. Cat. K: ${formatCurrency(CATEGORIAS_MONOTRIBUTO[CATEGORIAS_MONOTRIBUTO.length - 1].facturacionMax)}
                 </p>
-              </div>
+              </Card>
             </div>
+
+            <Card>
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <p className="text-text-muted text-xs uppercase tracking-wide mb-2">Tu categoría actual</p>
+                  <div className="relative inline-block">
+                    <select
+                      value={categoriaActualId}
+                      onChange={(e) => setCategoriaActualId(e.target.value)}
+                      className="appearance-none bg-navy-800 border border-glass-border text-text-primary rounded-xl px-4 py-2.5 pr-10 text-sm font-medium outline-none transition-all duration-300 cursor-pointer min-w-[200px] hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5"
+                    >
+                      <option value="">Seleccioná tu categoría</option>
+                      {CATEGORIAS_MONOTRIBUTO.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.label} — Tope: ${formatCurrency(cat.facturacionMax)}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {infoCategoriaActual && categoriaActualId && (
+                <div className="mt-4">
+                  <div className="w-full bg-navy-800 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        infoCategoriaActual.excede
+                          ? 'bg-error'
+                          : infoCategoriaActual.pctUsado > 80
+                            ? 'bg-yellow-400'
+                            : 'bg-teal/60'
+                      }`}
+                      style={{ width: `${Math.min(infoCategoriaActual.pctUsado, 100)}%` }}
+                    />
+                  </div>
+                  <p className={`text-xs mt-1 ${
+                    infoCategoriaActual.excede
+                      ? 'text-error'
+                      : infoCategoriaActual.pctUsado > 80
+                        ? 'text-yellow-400'
+                        : 'text-text-muted'
+                  }`}>
+                    {infoCategoriaActual.excede
+                      ? `Excede el límite (${infoCategoriaActual.pctUsado}%)`
+                      : `${infoCategoriaActual.pctUsado}% del límite usado`}
+                  </p>
+                </div>
+              )}
+            </Card>
+
+            {infoCategoriaActual?.excede && categoriaActualId && recomendada?.categoria && (
+              <div className="bg-error-bg border border-error/30 rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  <AlertTriangle size={24} className="text-error shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-error text-lg font-semibold mb-1">
+                      Superaste el límite de {categoriaActual?.label}
+                    </p>
+                    <p className="text-error/80 text-sm">
+                      Tu facturación anual estimada (${formatCurrency(data.facturacion)}) supera el tope de {categoriaActual?.label} (${formatCurrency(categoriaActual!.facturacionMax)}).
+                      Te corresponde recategorizarte a {recomendada.categoria.label}. Recordá que la recategorización es obligatoria cuando la facturación supera el límite de tu categoría.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {infoCategoriaActual && !infoCategoriaActual.excede && infoCategoriaActual.pctUsado > 80 && categoriaActualId && (
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6">
+                <div className="flex items-start gap-4">
+                  <AlertTriangle size={24} className="text-yellow-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-yellow-400 text-lg font-semibold mb-1">
+                      Cerca del límite de {categoriaActual?.label}
+                    </p>
+                    <p className="text-yellow-400/80 text-sm">
+                      Usaste el {infoCategoriaActual.pctUsado}% del tope de facturación de {categoriaActual?.label}.
+                      Si seguís facturando a este ritmo, podrías superar el límite y necesitar recategorizarte a {recomendada?.categoria?.label || 'una categoría superior'}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {recomendada?.excedeLimite && (
               <div className="bg-error-bg border border-error/30 rounded-2xl p-6">
@@ -97,7 +218,7 @@ export default function MonotributoPage() {
             )}
 
             {recomendada && !recomendada.excedeLimite && data.cantidadComprobantes > 0 && (
-              <div className="bg-glass border border-glass-border rounded-2xl p-6">
+              <Card>
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-teal/20 border border-teal/30 flex items-center justify-center shrink-0">
                     <Scale size={24} className="text-teal" />
@@ -159,13 +280,10 @@ export default function MonotributoPage() {
                     Incluye impuesto integrado + SIPA + obra social · Valores {new Date().getFullYear()}
                   </p>
                 </div>
-              </div>
+              </Card>
             )}
 
-            <div className="bg-glass border border-glass-border rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-glass-border">
-                <h3 className="text-text-primary font-semibold text-sm">Tabla comparativa de categorías</h3>
-              </div>
+            <Card header={<h3 className="text-text-primary font-semibold text-sm">Tabla comparativa de categorías</h3>} padding={false}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -188,14 +306,7 @@ export default function MonotributoPage() {
                         }`}
                       >
                         <td className="px-6 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-text-primary font-medium">{row.categoria.label}</span>
-                            {row.esRecomendada && (
-                              <span className="px-2 py-0.5 rounded-md bg-teal/20 text-teal text-[10px] font-semibold">
-                                Recomendada
-                              </span>
-                            )}
-                          </div>
+                          <span className="text-text-primary font-medium">{row.categoria.label}</span>
                         </td>
                         <td className="px-6 py-3 text-right text-text-secondary">
                           ${formatCurrency(row.categoria.facturacionMax)}
@@ -228,14 +339,9 @@ export default function MonotributoPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-glass border border-glass-border rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-glass-border">
-                <h3 className="text-text-primary font-semibold text-sm">
-                  Comprobantes cargados ({comprobantesOrdenados.length})
-                </h3>
-              </div>
+            <Card header={<h3 className="text-text-primary font-semibold text-sm">Comprobantes cargados ({comprobantesOrdenados.length})</h3>} padding={false}>
               {comprobantesOrdenados.length === 0 ? (
                 <div className="px-6 py-8 text-center text-text-muted text-sm">
                   <Receipt size={32} className="mx-auto mb-2 opacity-50" />
@@ -247,36 +353,36 @@ export default function MonotributoPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-glass-border text-text-muted text-xs uppercase tracking-wide sticky top-0 bg-navy-900">
-                        <th className="text-left px-4 py-2 font-medium">Tipo</th>
-                        <th className="text-left px-4 py-2 font-medium">Razón Social</th>
-                        <th className="text-right px-4 py-2 font-medium">Neto</th>
-                        <th className="text-right px-4 py-2 font-medium">Total</th>
-                        <th className="text-left px-4 py-2 font-medium">Categoría</th>
-                        <th className="text-left px-4 py-2 font-medium">Fecha</th>
+                        <th className="text-left px-4 py-3 font-medium">Tipo</th>
+                        <th className="text-left px-4 py-3 font-medium">Razón Social</th>
+                        <th className="text-right px-4 py-3 font-medium">Neto</th>
+                        <th className="text-right px-4 py-3 font-medium">Total</th>
+                        <th className="text-left px-4 py-3 font-medium">Categoría</th>
+                        <th className="text-left px-4 py-3 font-medium">Fecha</th>
                       </tr>
                     </thead>
                     <tbody>
                       {comprobantesOrdenados.map((c) => (
                         <tr key={c.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                          <td className="px-4 py-2 text-text-primary text-xs">{c.tipo || '—'}</td>
-                          <td className="px-4 py-2 text-text-secondary text-xs truncate max-w-[180px]">
-                            {c.razonSocial || '—'}
-                          </td>
-                          <td className="px-4 py-2 text-text-secondary text-xs text-right">
-                            ${formatCurrency(c.netoGravado || 0)}
-                          </td>
-                          <td className="px-4 py-2 text-text-primary text-xs text-right font-medium">
-                            ${formatCurrency(c.total || 0)}
-                          </td>
-                          <td className="px-4 py-2 text-text-secondary text-xs">{c.categoria || '—'}</td>
-                          <td className="px-4 py-2 text-text-muted text-xs">{c.fecha || '—'}</td>
+                        <td className="px-4 py-3 text-text-primary text-xs">{c.tipo || '—'}</td>
+                        <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[180px]">
+                          {c.razonSocial || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs text-right">
+                          ${formatCurrency(c.netoGravado || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-text-primary text-xs text-right font-medium">
+                          ${formatCurrency(c.total || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-text-secondary text-xs">{c.categoria || '—'}</td>
+                        <td className="px-4 py-3 text-text-muted text-xs">{c.fecha || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </div>
+            </Card>
 
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-5 py-4 text-yellow-300 text-sm">
               <p className="font-medium mb-1">Información importante</p>

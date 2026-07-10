@@ -1,23 +1,34 @@
 import { useState, useMemo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { AlertTriangle, BarChart3, CheckCircle2, Eye } from 'lucide-react'
-import { getAllComprobantesFlat } from '../db/repositories/comprobanteRepository'
-import { formatPeriodo, getAllPeriodos } from '../db/repositories/periodoRepository'
+import { getAllComprobantesFlat, getComprobantesFlatByCliente } from '../db/repositories/comprobanteRepository'
+import { formatPeriodo, getAllPeriodos, getPeriodosByCliente } from '../db/repositories/periodoRepository'
 import { calcularPreliquidacion } from '../services/preliquidacionService'
 import { exportToExcel } from '../services/exportService'
 import { CATEGORIA_LABELS } from '../services/validatorService'
 import { formatCurrency } from '../utils/format'
 import Modal from '../components/Modal'
 import type { Comprobante } from '../types/comprobante'
+import { useCliente } from '../hooks/useCliente'
 import Button from '../components/ui/Button'
+import Card from '../components/ui/Card'
+import StatCard from '../components/ui/StatCard'
+import PageHeader from '../components/ui/PageHeader'
 import PeriodoSelector from '../components/PeriodoSelector'
 
 export default function PreliquidacionPage() {
   const [periodoId, setPeriodoId] = useState<number | undefined>()
   const [detalleComprobante, setDetalleComprobante] = useState<Comprobante | null>(null)
+  const { clienteActivo } = useCliente()
 
-  const comprobantes = useLiveQuery(() => getAllComprobantesFlat())
-  const periodos = useLiveQuery(() => getAllPeriodos())
+  const comprobantes = useLiveQuery(
+    () => clienteActivo?.id ? getComprobantesFlatByCliente(clienteActivo.id) : getAllComprobantesFlat(),
+    [clienteActivo?.id],
+  )
+  const periodos = useLiveQuery(
+    () => clienteActivo?.id ? getPeriodosByCliente(clienteActivo.id) : getAllPeriodos(),
+    [clienteActivo?.id],
+  )
   const periodoSeleccionado = periodos?.find((p) => p.id === periodoId)
   const periodo = periodoSeleccionado ? formatPeriodo(periodoSeleccionado) : 'Sin periodo'
 
@@ -107,28 +118,22 @@ export default function PreliquidacionPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <div className="bg-glass border-b border-glass-border px-8 py-4 flex-shrink-0 flex items-center justify-between">
-        <div>
-          <h2 className="text-text-primary text-lg font-semibold">Preliquidación</h2>
-          <p className="text-text-muted text-xs">Resumen mensual para revisión del contador</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <PeriodoSelector
-            periodoId={periodoId}
-            onPeriodoChange={setPeriodoId}
-            compact
-          />
-          <Button
-            onClick={() => exportToExcel(preliquidacion)}
-            disabled={filtradosPorPeriodo.length === 0}
-            size="sm"
-          >
-            Exportar Excel
-          </Button>
-        </div>
-      </div>
+      <PageHeader title="Preliquidación" subtitle="Resumen mensual para revisión del contador">
+        <PeriodoSelector
+          periodoId={periodoId}
+          onPeriodoChange={setPeriodoId}
+          compact
+        />
+        <Button
+          onClick={() => exportToExcel(preliquidacion)}
+          disabled={filtradosPorPeriodo.length === 0}
+          size="sm"
+        >
+          Exportar Excel
+        </Button>
+      </PageHeader>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+      <div className="flex-1 overflow-y-auto p-6 animate-fadeInUp">
         {periodoId && filtradosPorPeriodo.length === 0 && (
           <div className="max-w-5xl mx-auto mb-6">
             <FaltantesBoard faltantes={faltantes} />
@@ -145,10 +150,7 @@ export default function PreliquidacionPage() {
 
         {filtradosPorPeriodo.length > 0 && (
           <div className="space-y-6 max-w-5xl mx-auto">
-            <div className="bg-glass border border-glass-border rounded-lg overflow-hidden">
-              <div className="px-5 py-4 border-b border-glass-border">
-                <h3 className="text-text-primary font-semibold text-sm">Tablero de faltantes</h3>
-              </div>
+            <Card header={<h3 className="text-text-primary font-semibold text-sm">Tablero de faltantes</h3>} padding={false}>
               <div className="divide-y divide-glass-border/50">
                 {faltantes.map((item) => (
                   <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-3">
@@ -169,81 +171,38 @@ export default function PreliquidacionPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <CountCard label="Comprobantes" value={resumenOperativo.total} />
-              <CountCard label="Incluidos IVA" value={resumenOperativo.incluidos} color="text-teal" />
-              <CountCard label="Pendientes" value={resumenOperativo.pendientes} color="text-yellow-400" />
-              <CountCard label="Observados" value={preliquidacion.comprobantesObservados || resumenOperativo.observados} color="text-error" />
-              <CountCard label="Sin clasificar" value={resumenOperativo.sinClasificar} color="text-yellow-400" />
+              <StatCard label="Comprobantes" value={resumenOperativo.total} />
+              <StatCard label="Incluidos IVA" value={resumenOperativo.incluidos} color="text-teal" />
+              <StatCard label="Pendientes" value={resumenOperativo.pendientes} color="text-yellow-400" />
+              <StatCard label="Observados" value={preliquidacion.comprobantesObservados || resumenOperativo.observados} color="text-error" />
+              <StatCard label="Sin clasificar" value={resumenOperativo.sinClasificar} color="text-yellow-400" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              <Card
-                label="IVA Débito"
-                value={preliquidacion.totalVentasIVA}
-                color="text-teal"
-                bg="bg-teal/10 border-teal/20"
-              />
-              <Card
-                label="IVA Crédito"
-                value={preliquidacion.totalComprasIVA}
-                color="text-yellow-400"
-                bg="bg-yellow-500/10 border-yellow-500/20"
-              />
-              <Card
-                label="Percepciones"
-                value={preliquidacion.percepciones}
-                color="text-blue-400"
-                bg="bg-blue-500/10 border-blue-500/20"
-              />
-              <Card
-                label="Retenciones"
-                value={preliquidacion.retenciones}
-                color="text-purple-400"
-                bg="bg-purple-500/10 border-purple-500/20"
-              />
-              <Card
+              <StatCard label="IVA Débito" value={`$${formatCurrency(preliquidacion.totalVentasIVA)}`} color="text-teal" className="bg-teal/10 border-teal/20 rounded-2xl p-5" />
+              <StatCard label="IVA Crédito" value={`$${formatCurrency(preliquidacion.totalComprasIVA)}`} color="text-yellow-400" className="bg-yellow-500/10 border-yellow-500/20 rounded-2xl p-5" />
+              <StatCard label="Percepciones" value={`$${formatCurrency(preliquidacion.percepciones)}`} color="text-blue-400" className="bg-blue-500/10 border-blue-500/20 rounded-2xl p-5" />
+              <StatCard label="Retenciones" value={`$${formatCurrency(preliquidacion.retenciones)}`} color="text-purple-400" className="bg-purple-500/10 border-purple-500/20 rounded-2xl p-5" />
+              <StatCard
                 label="Saldo Técnico"
-                value={preliquidacion.saldoTecnico}
-                color={
-                  preliquidacion.saldoTecnico >= 0 ? 'text-teal' : 'text-error'
-                }
-                bg={`border ${
+                value={`$${formatCurrency(preliquidacion.saldoTecnico)}`}
+                color={preliquidacion.saldoTecnico >= 0 ? 'text-teal' : 'text-error'}
+                className={`rounded-2xl p-5 border ${
                   preliquidacion.saldoTecnico >= 0
                     ? 'bg-teal/10 border-teal/20'
                     : 'bg-error-bg border-error/20'
                 }`}
-                big
               />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Card
-                label="Saldo Estimado"
-                value={preliquidacion.saldoEstimado}
-                color={preliquidacion.saldoEstimado >= 0 ? 'text-teal' : 'text-error'}
-                bg="bg-glass border-glass-border"
-              />
-              <Card
-                label="IVA No Computable"
-                value={preliquidacion.totalComprasNoComputableIVA}
-                color="text-text-secondary"
-                bg="bg-glass border-glass-border"
-              />
-              <Card
-                label="No Gravado"
-                value={preliquidacion.noGravado}
-                color="text-text-secondary"
-                bg="bg-glass border-glass-border"
-              />
-              <Card
-                label="Exento"
-                value={preliquidacion.exento}
-                color="text-text-secondary"
-                bg="bg-glass border-glass-border"
-              />
+              <StatCard label="Saldo Estimado" value={`$${formatCurrency(preliquidacion.saldoEstimado)}`} color={preliquidacion.saldoEstimado >= 0 ? 'text-teal' : 'text-error'} className="bg-glass border-glass-border rounded-2xl p-5" />
+              <StatCard label="IVA No Computable" value={`$${formatCurrency(preliquidacion.totalComprasNoComputableIVA)}`} color="text-text-secondary" className="bg-glass border-glass-border rounded-2xl p-5" />
+              <StatCard label="No Gravado" value={`$${formatCurrency(preliquidacion.noGravado)}`} color="text-text-secondary" className="bg-glass border-glass-border rounded-2xl p-5" />
+              <StatCard label="Exento" value={`$${formatCurrency(preliquidacion.exento)}`} color="text-text-secondary" className="bg-glass border-glass-border rounded-2xl p-5" />
             </div>
 
             {preliquidacion.comprobantesObservados > 0 && (
@@ -258,10 +217,7 @@ export default function PreliquidacionPage() {
               </div>
             )}
 
-            <div className="bg-glass border border-glass-border rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-glass-border">
-                <h3 className="text-text-primary font-semibold text-sm">Resumen por Alícuota</h3>
-              </div>
+            <Card header={<h3 className="text-text-primary font-semibold text-sm">Resumen por Alícuota</h3>} padding={false}>
               <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -318,47 +274,48 @@ export default function PreliquidacionPage() {
                 </tfoot>
               </table>
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-glass border border-glass-border rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
+            <Card header={
+              <div className="flex items-center justify-between">
                 <h3 className="text-text-primary font-semibold text-sm">
                   Comprobantes del período ({filtradosPorPeriodo.length})
                 </h3>
               </div>
+            } padding={false}>
               <div className="overflow-y-auto overflow-x-auto max-h-80">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-glass-border text-text-muted text-xs uppercase tracking-wide sticky top-0 bg-navy-900">
-                      <th className="text-left px-4 py-2 font-medium">Tipo</th>
-                      <th className="text-left px-4 py-2 font-medium">Razón Social</th>
-                      <th className="text-right px-4 py-2 font-medium">Neto</th>
-                      <th className="text-right px-4 py-2 font-medium">IVA</th>
-                      <th className="text-right px-4 py-2 font-medium">Total</th>
-                      <th className="text-left px-4 py-2 font-medium">Categoría</th>
-                      <th className="text-center px-4 py-2 font-medium"></th>
+                      <th className="text-left px-4 py-3 font-medium">Tipo</th>
+                      <th className="text-left px-4 py-3 font-medium">Razón Social</th>
+                      <th className="text-right px-4 py-3 font-medium">Neto</th>
+                      <th className="text-right px-4 py-3 font-medium">IVA</th>
+                      <th className="text-right px-4 py-3 font-medium">Total</th>
+                      <th className="text-left px-4 py-3 font-medium">Categoría</th>
+                      <th className="text-center px-4 py-3 font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtradosPorPeriodo.map((c) => (
                       <tr key={c.id} className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors">
-                        <td className="px-4 py-2 text-text-primary text-xs">{c.tipo}</td>
-                        <td className="px-4 py-2 text-text-secondary text-xs truncate max-w-[180px]">
+                        <td className="px-4 py-3 text-text-primary text-xs">{c.tipo}</td>
+                        <td className="px-4 py-3 text-text-secondary text-xs truncate max-w-[180px]">
                           {c.razonSocial || '—'}
                         </td>
-                        <td className="px-4 py-2 text-text-secondary text-xs text-right">
+                        <td className="px-4 py-3 text-text-secondary text-xs text-right">
                           ${formatCurrency(c.netoGravado)}
                         </td>
-                        <td className="px-4 py-2 text-teal text-xs text-right">
+                        <td className="px-4 py-3 text-teal text-xs text-right">
                           ${formatCurrency(c.iva)}
                         </td>
-                        <td className="px-4 py-2 text-text-primary text-xs text-right font-medium">
+                        <td className="px-4 py-3 text-text-primary text-xs text-right font-medium">
                           ${formatCurrency(c.total)}
                         </td>
-                        <td className="px-4 py-2 text-text-secondary text-xs">
+                        <td className="px-4 py-3 text-text-secondary text-xs">
                           {CATEGORIA_LABELS[c.categoria] || c.categoria}
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => setDetalleComprobante(c)}
                             className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
@@ -372,7 +329,7 @@ export default function PreliquidacionPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Card>
           </div>
         )}
       </div>
@@ -408,56 +365,13 @@ export default function PreliquidacionPage() {
   )
 }
 
-function Card({
-  label,
-  value,
-  color,
-  bg,
-  big,
-}: {
-  label: string
-  value: number
-  color: string
-  bg: string
-  big?: boolean
-}) {
-  return (
-    <div className={`rounded-2xl p-5 border ${bg}`}>
-      <p className="text-text-muted text-xs uppercase tracking-wide mb-1">{label}</p>
-      <p className={`${color} ${big ? 'text-2xl' : 'text-lg'} font-bold`}>
-        ${formatCurrency(value)}
-      </p>
-    </div>
-  )
-}
-
-function CountCard({
-  label,
-  value,
-  color = 'text-text-primary',
-}: {
-  label: string
-  value: number
-  color?: string
-}) {
-  return (
-    <div className="rounded-lg p-4 border border-glass-border bg-glass">
-      <p className="text-text-muted text-xs uppercase tracking-wide mb-1">{label}</p>
-      <p className={`${color} text-2xl font-bold`}>{value}</p>
-    </div>
-  )
-}
-
 function FaltantesBoard({
   faltantes,
 }: {
   faltantes: Array<{ label: string; ok: boolean; detail: string }>
 }) {
   return (
-    <div className="bg-glass border border-glass-border rounded-lg overflow-hidden">
-      <div className="px-5 py-4 border-b border-glass-border">
-        <h3 className="text-text-primary font-semibold text-sm">Tablero de faltantes</h3>
-      </div>
+    <Card header={<h3 className="text-text-primary font-semibold text-sm">Tablero de faltantes</h3>} padding={false}>
       <div className="divide-y divide-glass-border/50">
         {faltantes.map((item) => (
           <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-3">
@@ -478,6 +392,6 @@ function FaltantesBoard({
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }

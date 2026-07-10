@@ -30,19 +30,39 @@ export async function getAllPeriodos(): Promise<PeriodoFiscal[]> {
   return periodos.sort((a, b) => b.anio - a.anio || b.mes - a.mes)
 }
 
+export async function getPeriodosByCliente(
+  clienteId: number,
+): Promise<PeriodoFiscal[]> {
+  const periodos = await db.periodos
+    .where('clienteId')
+    .equals(clienteId)
+    .toArray()
+  return periodos.sort((a, b) => b.anio - a.anio || b.mes - a.mes)
+}
+
 export async function getOrCreatePeriodo(
   mes: number,
   anio: number,
   estado: EstadoPeriodo = 'abierto',
+  clienteId?: number,
 ): Promise<number> {
-  const existing = await db.periodos
-    .where('[anio+mes]')
-    .equals([anio, mes])
-    .first()
+  let existing: PeriodoFiscal | undefined
+
+  if (clienteId) {
+    existing = await db.periodos
+      .where('[clienteId+anio+mes]')
+      .equals([clienteId, anio, mes])
+      .first()
+  } else {
+    existing = await db.periodos
+      .where({ anio, mes })
+      .first()
+  }
 
   if (existing?.id) return existing.id
 
   const id = await db.periodos.add({
+    clienteId,
     mes,
     anio,
     estado,

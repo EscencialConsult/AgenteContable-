@@ -1,6 +1,6 @@
 import type { Comprobante, OrigenComprobante } from '../types/comprobante'
-import { addComprobante } from '../db/repositories/comprobanteRepository'
 import { addLoteCarga, updateLoteCarga } from '../db/repositories/loteCargaRepository'
+import { db } from '../db/database'
 import { getOrCreatePeriodo, getPeriodoFromFecha } from '../db/repositories/periodoRepository'
 import { extractTextFromImage, extractTextFromPDF, type OCRProgress } from './ocrService'
 import { parseComprobante } from './parserService'
@@ -21,6 +21,7 @@ interface IngestOptions {
   periodoId?: number
   origen?: OrigenComprobante
   estadoRevision?: Comprobante['estadoRevision']
+  clienteId?: number
 }
 
 export function isSupportedComprobanteFile(file: File) {
@@ -75,6 +76,7 @@ export async function ingestComprobanteFile(
   const origen = options.origen || 'manual'
 
   const loteId = await addLoteCarga({
+    clienteId: options.clienteId,
     periodoId,
     origen,
     estado: 'procesando',
@@ -88,6 +90,7 @@ export async function ingestComprobanteFile(
       ocrRawText: extractedText,
       fileName: file.name,
       archivoBase64: await readFileAsDataURL(file),
+      clienteId: options.clienteId,
       periodoId,
       loteId,
       origen,
@@ -95,8 +98,17 @@ export async function ingestComprobanteFile(
     })
 
     const duplicado = validado.validaciones?.some((validacion) => validacion.tipo === 'duplicado')
+
+    await db.transaction('rw', db.comprobantes, db.lotesCarga, async () => {
+      if (duplicado) {
+        await db.lotesCarga.update(loteId, { estado: 'observado' })
+      } else {
+        await db.comprobantes.add(validado as Comprobante)
+        await db.lotesCarga.update(loteId, { estado: 'procesado' })
+      }
+    })
+
     if (duplicado) {
-      await updateLoteCarga(loteId, { estado: 'observado' })
       return {
         status: 'duplicado',
         comprobante: validado,
@@ -106,9 +118,6 @@ export async function ingestComprobanteFile(
         message: 'Comprobante duplicado',
       }
     }
-
-    await addComprobante(validado as Comprobante)
-    await updateLoteCarga(loteId, { estado: 'procesado' })
 
     return {
       status: 'procesado',

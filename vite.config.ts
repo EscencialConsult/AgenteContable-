@@ -9,4 +9,15 @@ export default defineConfig({
       '/api': 'http://localhost:3001',
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('pdfjs-dist')) return 'pdfjs'
+          if (id.includes('xlsx-js-style')) return 'xlsx'
+          if (id.includes('dexie')) return 'dexie'
+        },
+      },
+    },
+  },
 })

@@ -3,9 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   formatPeriodo,
   getAllPeriodos,
+  getPeriodosByCliente,
   getCurrentPeriodoParts,
   getOrCreatePeriodo,
 } from '../db/repositories/periodoRepository'
+import { useCliente } from '../hooks/useCliente'
 import Select from './ui/Select'
 
 interface Props {
@@ -21,14 +23,18 @@ export default function PeriodoSelector({
   allowEmpty = false,
   compact = false,
 }: Props) {
-  const periodos = useLiveQuery(() => getAllPeriodos())
+  const { clienteActivo } = useCliente()
+  const periodos = useLiveQuery(
+    () => clienteActivo?.id ? getPeriodosByCliente(clienteActivo.id) : getAllPeriodos(),
+    [clienteActivo?.id],
+  )
 
   useEffect(() => {
     if (allowEmpty || periodos === undefined || periodoId) return
 
     const ensurePeriodo = async () => {
       const current = getCurrentPeriodoParts()
-      const id = await getOrCreatePeriodo(current.mes, current.anio)
+      const id = await getOrCreatePeriodo(current.mes, current.anio, 'abierto', clienteActivo?.id)
       onPeriodoChange(id)
     }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from 'react'
+import { useState, useEffect, useMemo, useCallback, memo } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   FileText,
@@ -10,8 +10,9 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Upload,
 } from 'lucide-react'
-import { getAllComprobantes, updateComprobante, deleteComprobante } from '../db/repositories/comprobanteRepository'
+import { getAllComprobantes, getComprobantesByCliente, updateComprobante, deleteComprobante } from '../db/repositories/comprobanteRepository'
 import type { Comprobante } from '../types/comprobante'
 import {
   CATEGORIA_LABELS,
@@ -27,8 +28,11 @@ import EstadoBadge from '../components/EstadoBadge'
 import Pagination from '../components/Pagination'
 import PeriodoSelector from '../components/PeriodoSelector'
 import { useToast } from '../context/ToastContext'
+import { useCliente } from '../hooks/useCliente'
 import Button from '../components/ui/Button'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import LoadingDots from '../components/LoadingDots'
+import UploadFlow from '../components/UploadFlow'
 
 const DEFAULT_PAGE_SIZE = 25
 
@@ -72,14 +76,30 @@ export default function BandejaPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const { addToast } = useToast()
+  const { clienteActivo } = useCliente()
+  const [showUploadModal, setShowUploadModal] = useState(false)
 
-  const comprobantes = useLiveQuery(() => getAllComprobantes())
+  const comprobantes = useLiveQuery(
+    () => clienteActivo?.id ? getComprobantesByCliente(clienteActivo.id) : getAllComprobantes(),
+    [clienteActivo?.id],
+  )
+
+  const { search, categoria, estado, tipo, periodoId } = filters
+
+  const handlePeriodoChange = useCallback(
+    (value?: number) =>
+      setFilters((prev) => ({
+        ...prev,
+        periodoId: value ? String(value) : '',
+      })),
+    [],
+  )
 
   const filtered = useMemo(() => {
     if (!comprobantes) return []
     let items = [...comprobantes]
-    if (filters.search) {
-      const q = filters.search.toLowerCase()
+    if (search) {
+      const q = search.toLowerCase()
       items = items.filter(
         (c) =>
           c.cuit.includes(q) ||
@@ -88,12 +108,12 @@ export default function BandejaPage() {
           c.tipo.toLowerCase().includes(q),
       )
     }
-    if (filters.categoria) items = items.filter((c) => c.categoria === filters.categoria)
-    if (filters.estado) items = items.filter((c) => c.estado === filters.estado)
-    if (filters.tipo) items = items.filter((c) => c.tipo === filters.tipo)
-    if (filters.periodoId) items = items.filter((c) => c.periodoId === Number(filters.periodoId))
+    if (categoria) items = items.filter((c) => c.categoria === categoria)
+    if (estado) items = items.filter((c) => c.estado === estado)
+    if (tipo) items = items.filter((c) => c.tipo === tipo)
+    if (periodoId) items = items.filter((c) => c.periodoId === Number(periodoId))
     return items
-  }, [comprobantes, filters])
+  }, [comprobantes, search, categoria, estado, tipo, periodoId])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginatedItems = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -143,18 +163,20 @@ export default function BandejaPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex flex-col h-full overflow-hidden animate-fadeInUp">
       <div className="bg-glass border-b border-glass-border px-8 py-4 flex-shrink-0">
-        <h2 className="text-text-primary text-lg font-semibold mb-3">Bandeja de Comprobantes</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-text-primary text-lg font-semibold">Comprobantes</h2>
+          <Button onClick={() => setShowUploadModal(true)} size="sm">
+            <Upload size={16} />
+            Cargar
+          </Button>
+        </div>
+
         <div className="mb-3">
           <PeriodoSelector
             periodoId={filters.periodoId ? Number(filters.periodoId) : undefined}
-            onPeriodoChange={(value) =>
-              setFilters((prev) => ({
-                ...prev,
-                periodoId: value ? String(value) : '',
-              }))
-            }
+            onPeriodoChange={handlePeriodoChange}
             allowEmpty
             compact
           />
@@ -162,7 +184,7 @@ export default function BandejaPage() {
         <FilterBar filters={filters} onChange={setFilters} />
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 overflow-y-auto">
         {!comprobantes && (
           <div className="flex items-center justify-center h-full">
             <LoadingDots />
@@ -181,7 +203,7 @@ export default function BandejaPage() {
             </p>
             <p className="text-sm">
               {comprobantes.length === 0
-                ? 'Cargá comprobantes desde la sección "Cargar"'
+                ? 'Hacé clic en "Cargar" para subir comprobantes'
                 : 'Probá con otros filtros'}
             </p>
           </div>
@@ -233,6 +255,17 @@ export default function BandejaPage() {
       )}
 
       <Modal
+        open={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        title="Carga de Comprobantes"
+        wide
+      >
+        <div className="max-h-[80vh] overflow-y-auto">
+          <UploadFlow onGoToLista={() => setShowUploadModal(false)} />
+        </div>
+      </Modal>
+
+      <Modal
         open={showEditModal}
         onClose={() => { setShowEditModal(false); setEditingComprobante(null) }}
         title="Editar Comprobante"
@@ -256,30 +289,14 @@ export default function BandejaPage() {
         {detailComprobante && <DetailView comprobante={detailComprobante} />}
       </Modal>
 
-      <Modal
+      <ConfirmDialog
         open={deleteConfirm !== null}
         onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
         title="Confirmar eliminación"
-      >
-        <p className="text-text-secondary text-sm mb-6">
-          ¿Estás seguro de que querés eliminar este comprobante? Esta acción no se puede deshacer.
-        </p>
-        <div className="flex gap-3">
-          <Button
-            variant="danger"
-            onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
-            className="flex-1"
-          >
-            Eliminar
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setDeleteConfirm(null)}
-          >
-            Cancelar
-          </Button>
-        </div>
-      </Modal>
+        message="¿Estás seguro de que querés eliminar este comprobante? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+      />
     </div>
   )
 }
@@ -302,9 +319,13 @@ const Row = memo(function Row({
   useEffect(() => {
     if (c.validaciones) {
       setValidaciones(c.validaciones)
-    } else {
-      validarComprobante(c).then(setValidaciones)
+      return
     }
+    const controller = new AbortController()
+    validarComprobante(c, controller.signal).then((res) => {
+      if (!controller.signal.aborted) setValidaciones(res)
+    })
+    return () => controller.abort()
   }, [c])
 
   const nivelGeneral = c.nivelValidacion || getNivelGeneral(validaciones)
@@ -360,14 +381,14 @@ const Row = memo(function Row({
         </span>
       </td>
       <td className="px-4 py-3 text-right">
-        <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={onView} aria-label="Ver detalle" className="p-1.5 bg-glass border border-glass-border rounded-md text-text-muted cursor-pointer transition-all hover:bg-glass-hover hover:text-text-primary">
+        <div className="flex gap-1 justify-end">
+          <button onClick={onView} aria-label="Ver detalle" className="p-1.5 bg-glass border border-glass-border rounded-md text-text-muted cursor-pointer transition-all hover:bg-glass-hover hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900">
             <Eye size={14} />
           </button>
-          <button onClick={onEdit} aria-label="Editar" className="p-1.5 bg-glass border border-glass-border rounded-md text-text-muted cursor-pointer transition-all hover:bg-glass-hover hover:text-text-primary">
+          <button onClick={onEdit} aria-label="Editar" className="p-1.5 bg-glass border border-glass-border rounded-md text-text-muted cursor-pointer transition-all hover:bg-glass-hover hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900">
             <Pencil size={14} />
           </button>
-          <button onClick={onDelete} aria-label="Eliminar" className="p-1.5 bg-glass border border-glass-border rounded-md text-text-muted cursor-pointer transition-all hover:bg-error-bg hover:text-error">
+          <button onClick={onDelete} aria-label="Eliminar" className="p-1.5 bg-glass border border-glass-border rounded-md text-text-muted cursor-pointer transition-all hover:bg-error-bg hover:text-error focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900">
             <Trash2 size={14} />
           </button>
         </div>
@@ -379,7 +400,13 @@ const Row = memo(function Row({
   prev.comprobante.estado === next.comprobante.estado &&
   prev.comprobante.estadoRevision === next.comprobante.estadoRevision &&
   prev.comprobante.nivelValidacion === next.comprobante.nivelValidacion &&
-  prev.comprobante.validatedAt === next.comprobante.validatedAt
+  prev.comprobante.validatedAt === next.comprobante.validatedAt &&
+  prev.comprobante.total === next.comprobante.total &&
+  prev.comprobante.categoria === next.comprobante.categoria &&
+  prev.comprobante.tipo === next.comprobante.tipo &&
+  prev.comprobante.cuit === next.comprobante.cuit &&
+  prev.comprobante.razonSocial === next.comprobante.razonSocial &&
+  prev.comprobante.fecha === next.comprobante.fecha
 )
 
 function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
@@ -390,9 +417,13 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
   useEffect(() => {
     if (c.validaciones) {
       setValidaciones(c.validaciones)
-    } else {
-      validarComprobante(c).then(setValidaciones)
+      return
     }
+    const controller = new AbortController()
+    validarComprobante(c, controller.signal).then((res) => {
+      if (!controller.signal.aborted) setValidaciones(res)
+    })
+    return () => controller.abort()
   }, [c])
 
   return (
@@ -431,7 +462,7 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
             ['Total', c.total],
           ].map(([label, value]) => (
             <div key={label as string} className="p-3 bg-navy-800 rounded-lg border border-glass-border">
-              <p className="text-text-muted text-[10px] uppercase mb-0.5">{label as string}</p>
+              <p className="text-text-muted text-[10px] uppercase tracking-wide mb-0.5">{label as string}</p>
               <p className="text-text-primary text-sm font-semibold">
                 ${formatCurrency(value as number)}
               </p>
@@ -453,7 +484,7 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
               ['Total ARS', c.totalPesos || c.total],
             ].map(([label, value]) => (
               <div key={label as string} className="p-3 bg-navy-800 rounded-lg border border-glass-border">
-                <p className="text-text-muted text-[10px] uppercase mb-0.5">{label as string}</p>
+                <p className="text-text-muted text-[10px] uppercase tracking-wide mb-0.5">{label as string}</p>
                 <p className="text-text-primary text-sm font-semibold">
                   {typeof value === 'number' ? formatCurrency(value) : value}
                 </p>
@@ -474,7 +505,7 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
               ['Confianza', `${Math.round(c.clasificacionFiscal.confianza * 100)}%`],
             ].map(([label, value]) => (
               <div key={label} className="p-3 bg-navy-800 rounded-lg border border-glass-border">
-                <p className="text-text-muted text-[10px] uppercase mb-0.5">{label}</p>
+                <p className="text-text-muted text-[10px] uppercase tracking-wide mb-0.5">{label}</p>
                 <p className="text-text-primary text-sm font-semibold">{value}</p>
               </div>
             ))}
@@ -493,7 +524,7 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
           <div className="overflow-x-auto border border-glass-border rounded-lg">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-glass-border text-text-muted uppercase">
+                <tr className="border-b border-glass-border text-text-muted uppercase tracking-wide">
                   <th className="text-left px-3 py-2 font-medium">Alicuota</th>
                   <th className="text-right px-3 py-2 font-medium">Neto</th>
                   <th className="text-right px-3 py-2 font-medium">IVA</th>
@@ -566,7 +597,7 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
         <div>
           <p className="text-text-muted text-[11px] uppercase tracking-wide mb-1">OCR crudo</p>
           <div className="border border-glass-border rounded-lg bg-navy-900/70 p-3">
-            <pre className="text-text-secondary text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto custom-scrollbar">
+            <pre className="text-text-secondary text-xs whitespace-pre-wrap break-words max-h-80 overflow-y-auto">
               {c.ocrRawText}
             </pre>
           </div>
@@ -579,6 +610,7 @@ function DetailView({ comprobante: c }: { comprobante: Comprobante }) {
           <img
             src={c.archivoBase64}
             alt={c.fileName || 'Comprobante'}
+            loading="lazy"
             className="max-w-full rounded-lg border border-glass-border"
           />
         </div>

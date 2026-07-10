@@ -42,7 +42,7 @@ export default function Button({
     <button
       className={`
         inline-flex items-center justify-center gap-2
-        rounded-xl uppercase tracking-wider cursor-pointer
+        rounded-xl cursor-pointer
         transition-all duration-300
         focus:outline-none focus:ring-2 focus:ring-teal/40 focus:ring-offset-1 focus:ring-offset-navy-900
         active:scale-[0.98]

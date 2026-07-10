@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { AlertTriangle, DatabaseBackup, Download, FileArchive, Shield, Upload } from 'lucide-react'
 import Button from '../components/ui/Button'
+import StatCard from '../components/ui/StatCard'
 import PeriodoSelector from '../components/PeriodoSelector'
 import { useToast } from '../context/ToastContext'
 import {
@@ -109,23 +110,23 @@ export default function BackupPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
-      <div className="bg-glass border-b border-glass-border px-8 py-5">
+    <div className="flex-1 overflow-y-auto animate-fadeInUp">
+      <div className="bg-glass border-b border-glass-border px-8 py-4">
         <h2 className="text-text-primary text-lg font-semibold">Seguridad y copias</h2>
         <p className="text-text-secondary text-sm mt-1">
           Guarda una copia de tu informacion y recuperala cuando la necesites.
         </p>
       </div>
 
-      <div className="p-8 space-y-6 max-w-6xl">
+      <div className="p-6 space-y-6 max-w-6xl">
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <InfoTile label="Espacio usado" value={formatBytes(storage.usage)} />
-          <InfoTile label="Espacio disponible" value={formatBytes(storage.quota)} />
-          <InfoTile label="Nivel de ocupacion" value={storage.percent !== undefined ? `${storage.percent}%` : 'No disponible'} />
+          <StatCard label="Espacio usado" value={formatBytes(storage.usage)} />
+          <StatCard label="Espacio disponible" value={formatBytes(storage.quota)} />
+          <StatCard label="Nivel de ocupacion" value={storage.percent !== undefined ? `${storage.percent}%` : 'No disponible'} />
         </section>
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <div className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
+          <div className="border border-glass-border rounded-2xl bg-navy-800/50 p-5">
             <div className="flex items-center gap-3 mb-4">
               <DatabaseBackup size={20} className="text-teal" />
               <h3 className="text-text-primary font-semibold">Guardar copia completa</h3>
@@ -139,7 +140,7 @@ export default function BackupPage() {
             </Button>
           </div>
 
-          <div className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
+          <div className="border border-glass-border rounded-2xl bg-navy-800/50 p-5">
             <div className="flex items-center gap-3 mb-4">
               <FileArchive size={20} className="text-teal" />
               <h3 className="text-text-primary font-semibold">Guardar un periodo</h3>
@@ -157,7 +158,7 @@ export default function BackupPage() {
           </div>
         </section>
 
-        <section className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
+        <section className="border border-glass-border rounded-2xl bg-navy-800/50 p-5">
           <div className="flex items-center gap-3 mb-4">
             <Upload size={20} className="text-teal" />
             <h3 className="text-text-primary font-semibold">Recuperar una copia</h3>
@@ -191,7 +192,7 @@ export default function BackupPage() {
               <select
                 value={restoreMode}
                 onChange={(event) => setRestoreMode(event.target.value as 'merge' | 'replace')}
-                className="w-full px-3 py-2 bg-navy-900 border border-glass-border rounded-lg text-text-primary text-sm outline-none"
+                className="w-full px-3 py-2 bg-navy-800 border border-glass-border rounded-xl text-text-primary text-sm outline-none transition-all duration-300 cursor-pointer hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5"
               >
                 <option value="merge">Sumar sin borrar</option>
                 <option value="replace">Reemplazar lo actual</option>
@@ -208,7 +209,7 @@ export default function BackupPage() {
           </div>
         </section>
 
-        <section className="border border-glass-border rounded-lg bg-navy-800/50 p-5">
+        <section className="border border-glass-border rounded-2xl bg-navy-800/50 p-5">
           <div className="flex items-center gap-3 mb-4">
             <Shield size={20} className="text-teal" />
             <h3 className="text-text-primary font-semibold">Antes de compartir una copia</h3>
@@ -238,11 +239,4 @@ export default function BackupPage() {
   )
 }
 
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-glass-border rounded-lg bg-navy-800/50 p-4">
-      <p className="text-text-muted text-xs uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-text-primary text-lg font-semibold">{value}</p>
-    </div>
-  )
-}
+

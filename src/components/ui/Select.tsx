@@ -14,7 +14,7 @@ export default function Select({ label, className = '', children, ...props }: Se
       )}
       <select
         {...props}
-        className={`px-4 py-2 bg-navy-800 border border-glass-border rounded-lg text-text-primary text-sm outline-none transition-all duration-300 cursor-pointer hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5 ${className}`}
+        className={`px-4 py-2 bg-navy-800 border border-glass-border rounded-xl text-text-primary text-sm outline-none transition-all duration-300 cursor-pointer hover:bg-glass-hover focus:border-teal focus:shadow-ring-teal-subtle-4 focus:-translate-y-0.5 ${className}`}
       >
         {children}
       </select>

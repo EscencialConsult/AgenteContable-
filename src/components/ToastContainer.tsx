@@ -25,7 +25,7 @@ export default function ToastContainer() {
         return (
           <div
             key={toast.id}
-            className={`flex items-start gap-3 px-4 py-3 rounded-lg border backdrop-blur-xl shadow-lg animate-slideIn ${styles[toast.type]}`}
+            className={`flex items-start gap-3 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-lg animate-slideIn ${styles[toast.type]}`}
           >
             <Icon size={18} className="shrink-0 mt-0.5" />
             <p className="text-sm flex-1">{toast.message}</p>
